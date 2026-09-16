@@ -1,0 +1,239 @@
+syntax = "proto3";
+
+package netdisk.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "netdisk/v1/auth.proto";
+import "netdisk/v1/common.proto";
+
+option go_package = "nagisa/api/netdisk/v1;v1";
+option java_multiple_files = true;
+option java_package = "io.nagisa.netdisk.v1";
+option java_outer_classname = "SystemProto";
+option objc_class_prefix = "APINetdiskV1";
+
+// SystemService exposes deployment level information.
+//
+// GetSystemInfo and HealthCheck are public so a front end can bootstrap before
+// it has a token. Every other method requires an account with
+// PERMISSION_STORAGE_MANAGE or PERMISSION_SYSTEM_MANAGE.
+service SystemService {
+  // GetSystemInfo returns the capabilities, limits and public auth parameters
+  // of this deployment. This endpoint is public.
+  rpc GetSystemInfo (GetSystemInfoRequest) returns (SystemInfo) {
+    option (google.api.http) = {
+      get: "/v1/system/info"
+    };
+  }
+
+  // HealthCheck reports whether the process can reach its dependencies. This
+  // endpoint is public.
+  rpc HealthCheck (HealthCheckRequest) returns (HealthStatus) {
+    option (google.api.http) = {
+      get: "/v1/system/health"
+    };
+  }
+
+  // GetStorageStats aggregates storage usage across accounts.
+  rpc GetStorageStats (GetStorageStatsRequest) returns (StorageStats) {
+    option (google.api.http) = {
+      get: "/v1/system/storage/stats"
+    };
+  }
+
+  // RunMaintenance triggers the housekeeping jobs: expiring stale upload
+  // sessions, releasing objects queued for deletion, reclaiming orphaned
+  // objects, expiring share links and recounting per-account usage.
+  rpc RunMaintenance (RunMaintenanceRequest) returns (MaintenanceReport) {
+    option (google.api.http) = {
+      post: "/v1/system/maintenance/run"
+      body: "*"
+    };
+  }
+
+  // ListSystemSettings returns the runtime tunables that may be changed
+  // without a restart.
+  rpc ListSystemSettings (ListSystemSettingsRequest) returns (SystemSettingSet) {
+    option (google.api.http) = {
+      get: "/v1/system/settings/list"
+    };
+  }
+
+  // UpdateSystemSettings writes runtime tunables. Values are validated against
+  // the documented bounds of each key.
+  rpc UpdateSystemSettings (UpdateSystemSettingsRequest) returns (SystemSettingSet) {
+    option (google.api.http) = {
+      put: "/v1/system/settings/update"
+      body: "*"
+    };
+  }
+}
+
+// SystemInfo advertises deployment capabilities and limits.
+message SystemInfo {
+  // Service name.
+  string name = 1;
+  // Build version.
+  string version = 2;
+  // API version, currently "v1".
+  string api_version = 3;
+  // Feature flags, for example "chunked_upload", "share_links",
+  // "node_password", "acl", "versions", "public_share".
+  repeated string features = 4;
+  // Maximum accepted size of a single file in bytes. Zero means unlimited.
+  int64 max_upload_size = 5;
+  // Part size used when a client does not request one.
+  int64 default_chunk_size = 6;
+  // Smallest accepted part size. Object storage requires at least 5 MiB for
+  // every part but the last.
+  int64 min_chunk_size = 7;
+  // Largest payload accepted by UploadSmallFile.
+  int64 max_inline_size = 8;
+  // Lifetime of an upload session in seconds.
+  int32 upload_session_ttl_seconds = 9;
+  // Default lifetime of a signed URL in seconds.
+  int32 signed_url_ttl_seconds = 10;
+  // Maximum lifetime of a signed URL in seconds.
+  int32 signed_url_max_ttl_seconds = 11;
+  // Transports this deployment offers for part payloads.
+  repeated UploadMode upload_modes = 12;
+  // Object storage backend in use, for example "s3".
+  string storage_backend = 13;
+  // Database backend in use, for example "sqlite".
+  string database_backend = 14;
+  // Default visibility applied to newly created nodes.
+  Visibility default_visibility = 15;
+  // Whether accounts may be created through the API. In this deployment only
+  // administrators may create accounts.
+  bool registration_enabled = 16;
+  // Public authentication parameters, including the password key.
+  AuthConfig auth = 17;
+  // Server clock at the time of the response.
+  google.protobuf.Timestamp server_time = 18;
+  // Base URL used to build share links.
+  string public_base_url = 19;
+}
+
+// HealthStatus reports dependency reachability.
+message HealthStatus {
+  // Overall status: "ok", "degraded" or "down".
+  string status = 1;
+  // Per dependency status, for example {"database": "ok"}.
+  map<string, string> checks = 2;
+  int64 uptime_seconds = 3;
+  google.protobuf.Timestamp server_time = 4;
+}
+
+// OwnerUsage is one row of the per-account usage breakdown.
+message OwnerUsage {
+  string owner_id = 1;
+  string owner_name = 2;
+  int64 used_bytes = 3;
+  int64 file_count = 4;
+  int64 folder_count = 5;
+  int64 quota_bytes = 6;
+}
+
+// StorageStats aggregates storage usage.
+message StorageStats {
+  int64 total_bytes = 1;
+  int64 total_files = 2;
+  int64 total_folders = 3;
+  int64 total_users = 4;
+  int64 active_users = 5;
+  int64 disabled_users = 6;
+  int64 trashed_bytes = 7;
+  int64 trashed_nodes = 8;
+  int64 uploads_in_progress = 9;
+  int64 active_shares = 10;
+  int64 versions_bytes = 11;
+  // Bytes by mime type family, for example {"image": 1048576}.
+  map<string, int64> size_by_category = 12;
+  // Largest consumers, ordered by used_bytes descending.
+  repeated OwnerUsage top_owners = 13;
+  // Bytes of objects the backend reported as used, including versions and
+  // pending deletions.
+  int64 backend_used_bytes = 14;
+}
+
+// MaintenanceReport describes what a maintenance run did.
+message MaintenanceReport {
+  bool dry_run = 1;
+  // Tasks that were requested.
+  repeated string tasks = 2;
+  // Upload sessions moved to UPLOAD_STATUS_EXPIRED.
+  int64 expired_uploads = 3;
+  // Objects released from the pending deletion queue.
+  int64 deleted_objects = 4;
+  // Objects reclaimed because nothing referenced them.
+  int64 orphan_objects = 5;
+  // Share links moved to SHARE_STATUS_EXPIRED.
+  int64 expired_shares = 6;
+  // Accounts whose used_bytes was recomputed.
+  int64 recounted_users = 7;
+  // Nodes permanently purged after their retention window.
+  int64 purged_nodes = 8;
+  // Non-fatal problems encountered.
+  repeated string warnings = 9;
+  // Wall clock duration in milliseconds.
+  int64 duration_ms = 10;
+  google.protobuf.Timestamp finished_at = 11;
+}
+
+// SystemSetting is one runtime tunable.
+message SystemSetting {
+  // Stable key, for example "guest.default_permissions".
+  string key = 1;
+  // Current value, serialised as a string.
+  string value = 2;
+  // Value type: "string", "int", "bool" or "json".
+  string type = 3;
+  // Human readable Chinese description.
+  string description = 4;
+  // Whether the key may be written through UpdateSystemSettings.
+  bool writable = 5;
+}
+
+// SystemSettingSet is a collection of runtime tunables.
+message SystemSettingSet {
+  repeated SystemSetting settings = 1;
+}
+
+// GetSystemInfoRequest is the input for SystemService.GetSystemInfo.
+message GetSystemInfoRequest {}
+
+// HealthCheckRequest is the input for SystemService.HealthCheck.
+message HealthCheckRequest {
+  // Probe dependencies instead of only reporting process liveness.
+  bool deep = 1;
+}
+
+// GetStorageStatsRequest is the input for SystemService.GetStorageStats.
+message GetStorageStatsRequest {
+  // Number of largest consumers to return. Defaults to 10, capped at 100.
+  int32 top_owners = 1;
+}
+
+// RunMaintenanceRequest is the input for SystemService.RunMaintenance.
+message RunMaintenanceRequest {
+  // Report what would happen without changing anything.
+  bool dry_run = 1;
+  // Tasks to run. Empty runs every task.
+  // Supported values: "expire_uploads", "purge_deletions", "gc_orphans",
+  // "expire_shares", "recount_usage", "purge_trash".
+  repeated string tasks = 2;
+  // Only purge trash entries older than this many days. Defaults to 30.
+  int32 trash_retention_days = 3;
+}
+
+// ListSystemSettingsRequest is the input for
+// SystemService.ListSystemSettings.
+message ListSystemSettingsRequest {}
+
+// UpdateSystemSettingsRequest is the input for
+// SystemService.UpdateSystemSettings.
+message UpdateSystemSettingsRequest {
+  // Settings to write. Only writable keys are accepted.
+  repeated SystemSetting settings = 1;
+}

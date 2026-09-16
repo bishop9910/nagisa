@@ -1,0 +1,230 @@
+syntax = "proto3";
+
+package netdisk.v1;
+
+import "netdisk/v1/user.proto";
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "nagisa/api/netdisk/v1;v1";
+option java_multiple_files = true;
+option java_package = "io.nagisa.netdisk.v1";
+option java_outer_classname = "AuthProto";
+option objc_class_prefix = "APINetdiskV1";
+
+// AuthService covers credential exchange and session lifecycle.
+//
+// Passwords are never transported in clear text. The client first calls
+// GetAuthConfig, encrypts the password with the returned RSA public key using
+// RSA-OAEP with SHA-256, base64 encodes the ciphertext and sends that value in
+// every password field of this service.
+service AuthService {
+  // GetAuthConfig returns the parameters the client needs before it can log
+  // in, including the RSA public key used to encode passwords. This endpoint
+  // is public.
+  rpc GetAuthConfig (GetAuthConfigRequest) returns (AuthConfig) {
+    option (google.api.http) = {
+      get: "/v1/auth/config"
+    };
+  }
+
+  // Login exchanges an account name and an encoded password for an access
+  // token and a refresh token.
+  // Returns UNAUTHENTICATED when the account does not exist or the password
+  // does not match, and PERMISSION_DENIED when the account is disabled.
+  rpc Login (LoginRequest) returns (LoginReply) {
+    option (google.api.http) = {
+      post: "/v1/auth/login"
+      body: "*"
+    };
+  }
+
+  // GuestLogin opens a read-only session for the built-in guest account
+  // without a password, so a client can show what guests may read straight
+  // away. The account's permission set is fixed and cannot be changed by
+  // anybody, and the reply carries an access token only: there is nothing to
+  // refresh, a client simply asks again when the token expires.
+  // Returns UNSUPPORTED when the deployment does not enable guest login.
+  rpc GuestLogin (GuestLoginRequest) returns (LoginReply) {
+    option (google.api.http) = {
+      post: "/v1/auth/guest"
+      body: "*"
+    };
+  }
+
+  // RefreshToken rotates a refresh token into a fresh token pair. The
+  // presented refresh token is revoked on success.
+  // Returns UNAUTHENTICATED when the token is unknown, revoked or expired.
+  rpc RefreshToken (RefreshTokenRequest) returns (LoginReply) {
+    option (google.api.http) = {
+      post: "/v1/auth/refresh"
+      body: "*"
+    };
+  }
+
+  // Logout revokes the supplied refresh token and, when revoke_all is set,
+  // every refresh token of the account.
+  rpc Logout (LogoutRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/auth/logout"
+      body: "*"
+    };
+  }
+
+  // GetCurrentUser returns the account behind the presented access token.
+  rpc GetCurrentUser (GetCurrentUserRequest) returns (User) {
+    option (google.api.http) = {
+      get: "/v1/auth/me"
+    };
+  }
+
+  // ChangePassword replaces the caller's own password. The current password
+  // must be supplied and encoded the same way as on login. Every other refresh
+  // token of the account is revoked on success.
+  rpc ChangePassword (ChangePasswordRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/auth/password/change"
+      body: "*"
+    };
+  }
+
+  // ListSessions returns the caller's active refresh sessions.
+  rpc ListSessions (ListSessionsRequest) returns (SessionSet) {
+    option (google.api.http) = {
+      get: "/v1/auth/sessions/list"
+    };
+  }
+
+  // RevokeSession revokes one of the caller's own sessions by id.
+  rpc RevokeSession (RevokeSessionRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/auth/sessions/revoke"
+      body: "*"
+    };
+  }
+}
+
+// AuthConfig is the public pre-login parameter set.
+message AuthConfig {
+  // Identifier of the password key, echoed by clients so a key rotation can be
+  // detected without a failed login.
+  string password_key_id = 1;
+  // Encoding the client must apply to every password field, currently
+  // "rsa-oaep-sha256".
+  string password_encoding = 2;
+  // PEM encoded PKCS#8 RSA public key.
+  string password_public_key = 3;
+  // Access token lifetime in seconds.
+  int32 access_token_ttl_seconds = 4;
+  // Refresh token lifetime in seconds.
+  int32 refresh_token_ttl_seconds = 5;
+  // Whether the deployment accepts an unencoded password. Only ever true in a
+  // local development configuration.
+  bool plain_password_allowed = 6;
+  // Server clock at the time of the response.
+  google.protobuf.Timestamp server_time = 7;
+  // Whether the deployment hands out a read-only guest session without a
+  // password through AuthService.GuestLogin.
+  bool guest_login_enabled = 8;
+}
+
+// Session is one refresh token family shown to its owner.
+message Session {
+  string id = 1;
+  // Client address that created the session.
+  string ip = 2;
+  // User agent recorded at creation time.
+  string user_agent = 3;
+  // Time at which the session was created.
+  google.protobuf.Timestamp created_at = 4;
+  // Time at which the session was last refreshed.
+  google.protobuf.Timestamp last_used_at = 5;
+  // Time at which the session expires.
+  google.protobuf.Timestamp expires_at = 6;
+  // Whether the session is still usable.
+  bool active = 7;
+  // Whether this is the session behind the current request.
+  bool current = 8;
+}
+
+// SessionSet is a page of sessions.
+message SessionSet {
+  repeated Session sessions = 1;
+  string next_page_token = 2;
+}
+
+// GetAuthConfigRequest is the input for AuthService.GetAuthConfig.
+message GetAuthConfigRequest {}
+
+// LoginRequest is the input for AuthService.Login.
+message LoginRequest {
+  // Account name.
+  string username = 1 [(google.api.field_behavior) = REQUIRED];
+  // RSA-OAEP(SHA-256) encrypted, base64 encoded password.
+  string password = 2 [(google.api.field_behavior) = REQUIRED];
+  // Client address hint used when the request does not come through a proxy.
+  string ip = 3;
+  // Client user agent hint.
+  string user_agent = 4;
+  // Whether the refresh token should be long lived.
+  bool remember_me = 5;
+}
+
+// GuestLoginRequest is the input for AuthService.GuestLogin.
+message GuestLoginRequest {
+  // Client address hint used when the request does not come through a proxy.
+  string ip = 1;
+  // Client user agent hint.
+  string user_agent = 2;
+}
+
+// LoginReply carries the token pair and the authenticated account.
+message LoginReply {
+  string access_token = 1;
+  string refresh_token = 2;
+  string token_type = 3;
+  // Access token lifetime in seconds.
+  int32 expires_in = 4;
+  // Refresh token lifetime in seconds.
+  int32 refresh_expires_in = 5;
+  User user = 6;
+}
+
+// RefreshTokenRequest is the input for AuthService.RefreshToken.
+message RefreshTokenRequest {
+  string refresh_token = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// LogoutRequest is the input for AuthService.Logout.
+message LogoutRequest {
+  // Refresh token to revoke. Optional when the caller is authenticated.
+  string refresh_token = 1;
+  // Revoke every refresh token of the account instead of a single one.
+  bool revoke_all = 2;
+}
+
+// GetCurrentUserRequest is the input for AuthService.GetCurrentUser.
+message GetCurrentUserRequest {}
+
+// ChangePasswordRequest is the input for AuthService.ChangePassword.
+message ChangePasswordRequest {
+  // RSA-OAEP(SHA-256) encrypted, base64 encoded current password.
+  string current_password = 1 [(google.api.field_behavior) = REQUIRED];
+  // RSA-OAEP(SHA-256) encrypted, base64 encoded new password.
+  string new_password = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+// ListSessionsRequest is the input for AuthService.ListSessions.
+message ListSessionsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  // Include sessions that are expired or revoked.
+  bool include_inactive = 3;
+}
+
+// RevokeSessionRequest is the input for AuthService.RevokeSession.
+message RevokeSessionRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}

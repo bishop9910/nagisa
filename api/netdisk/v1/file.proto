@@ -1,0 +1,341 @@
+syntax = "proto3";
+
+package netdisk.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "netdisk/v1/common.proto";
+import "netdisk/v1/node.proto";
+
+option go_package = "nagisa/api/netdisk/v1;v1";
+option java_multiple_files = true;
+option java_package = "io.nagisa.netdisk.v1";
+option java_outer_classname = "FileProto";
+option objc_class_prefix = "APINetdiskV1";
+
+// FileService covers content transfer: resumable multipart upload, signed
+// download URLs and previews.
+//
+// Uploads are staged in object storage and only become visible as a node when
+// CompleteUpload succeeds. The commit runs in a single database transaction
+// that re-checks the destination name, the quota and the declared checksum, so
+// a failed or abandoned upload never leaves a half-created node behind.
+//
+// Two transports are available for part payloads:
+//   * UPLOAD_MODE_PRESIGNED PUTs each part straight to object storage with a
+//     presigned URL, which never routes bytes through this server;
+//   * UPLOAD_MODE_PROXY streams each part through UploadPart, for deployments
+//     where object storage is not reachable by clients.
+//
+// A raw streaming binding exists for browser clients that cannot speak proto
+// JSON: PUT /v1/files/uploads/{upload_id}/parts/{part_number}/raw accepts an
+// application/octet-stream body, and GET /v1/files/{node_id}/content streams
+// the original bytes with byte-range support.
+service FileService {
+  // InitiateUpload opens a multipart upload session. When a session with the
+  // same parent, name and owner is still pending it is returned instead of a
+  // new one, which makes retries and resumes idempotent.
+  rpc InitiateUpload (InitiateUploadRequest) returns (UploadSession) {
+    option (google.api.http) = {
+      post: "/v1/files/uploads/create"
+      body: "*"
+    };
+  }
+
+  // ListUploads returns the caller's upload sessions.
+  rpc ListUploads (ListUploadsRequest) returns (UploadSessionSet) {
+    option (google.api.http) = {
+      get: "/v1/files/uploads/list"
+    };
+  }
+
+  // CompleteUpload verifies every declared part, assembles the object and
+  // commits the node in one transaction.
+  // Returns UPLOAD_INCOMPLETE when parts are missing or their sizes do not add
+  // up, PRECONDITION_FAILED when the checksum does not match, and
+  // NAME_CONFLICT when the destination name was taken meanwhile.
+  rpc CompleteUpload (CompleteUploadRequest) returns (Node) {
+    option (google.api.http) = {
+      post: "/v1/files/uploads/complete"
+      body: "*"
+    };
+  }
+
+  // AbortUpload cancels a session and reclaims every staged part.
+  rpc AbortUpload (AbortUploadRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/files/uploads/abort"
+      body: "*"
+    };
+  }
+
+  // ConfirmUploadPart records the etag produced by a direct-to-storage part
+  // upload. Only meaningful in UPLOAD_MODE_PRESIGNED.
+  rpc ConfirmUploadPart (ConfirmUploadPartRequest) returns (UploadPart) {
+    option (google.api.http) = {
+      post: "/v1/files/uploads/parts/confirm"
+      body: "*"
+    };
+  }
+
+  // UploadSmallFile stores a payload carried inside the request. Intended for
+  // files at or below the max_inline_size advertised by SystemService, which
+  // defaults to 4 MiB.
+  rpc UploadSmallFile (UploadSmallFileRequest) returns (Node) {
+    option (google.api.http) = {
+      post: "/v1/files/upload"
+      body: "*"
+    };
+  }
+
+  // GetUpload returns one upload session, including the parts already stored.
+  rpc GetUpload (GetUploadRequest) returns (UploadSession) {
+    option (google.api.http) = {
+      get: "/v1/files/uploads/{id}"
+    };
+  }
+
+  // ListUploadParts returns the parts of a session, which lets a client resume
+  // without re-sending completed parts.
+  rpc ListUploadParts (ListUploadPartsRequest) returns (UploadPartSet) {
+    option (google.api.http) = {
+      get: "/v1/files/uploads/{upload_id}/parts"
+    };
+  }
+
+  // UploadChunk streams one part through the server. part_number is one-based
+  // and must not exceed UploadSession.total_parts. Content type is inferred
+  // from the parent session.
+  rpc UploadChunk (UploadChunkRequest) returns (UploadPart) {
+    option (google.api.http) = {
+      put: "/v1/files/uploads/{upload_id}/parts/{part_number}"
+      body: "*"
+    };
+  }
+
+  // GetDownloadUrl returns a signed URL for the original bytes of a file
+  // node. In a presigned deployment the URL points at object storage, so the
+  // download never traverses this server. The URL encodes the node id, the
+  // caller, the expiry and the disposition, and is validated again when it is
+  // redeemed.
+  rpc GetDownloadUrl (GetDownloadUrlRequest) returns (SignedUrl) {
+    option (google.api.http) = {
+      get: "/v1/files/{node_id}/download-url"
+    };
+  }
+
+  // GetArchiveUrl returns a signed URL that streams a folder, or a file, as a
+  // zip archive. Large folders are streamed on the fly rather than materialised.
+  rpc GetArchiveUrl (GetArchiveUrlRequest) returns (SignedUrl) {
+    option (google.api.http) = {
+      get: "/v1/files/{node_id}/archive-url"
+    };
+  }
+
+  // GetPreviewUrl returns a signed URL for an inline preview or a thumbnail.
+  // Returns UNSUPPORTED when no preview can be produced for the mime type.
+  rpc GetPreviewUrl (GetPreviewUrlRequest) returns (SignedUrl) {
+    option (google.api.http) = {
+      get: "/v1/files/{node_id}/preview-url"
+    };
+  }
+}
+
+// UploadSession is one multipart upload.
+message UploadSession {
+  string id = 1;
+  // Destination folder.
+  string parent_id = 2;
+  // Destination file name.
+  string name = 3;
+  // Always NODE_KIND_FILE for an upload session.
+  NodeKind kind = 4;
+  // Declared total size in bytes.
+  int64 size = 5;
+  string mime_type = 6;
+  // Size of every part except the last, in bytes.
+  int64 chunk_size = 7;
+  // Number of parts the declared size implies.
+  int32 total_parts = 8;
+  // One-based numbers of the parts already stored.
+  repeated int32 uploaded_parts = 9;
+  // Bytes received so far.
+  int64 received_bytes = 10;
+  UploadStatus status = 11;
+  // Transport selected for part payloads.
+  UploadMode mode = 12;
+  // Behaviour applied when the destination name is taken.
+  ConflictPolicy conflict_policy = 13;
+  // Parts already stored, with their presigned URLs when mode is
+  // UPLOAD_MODE_PRESIGNED.
+  repeated UploadPart parts = 14;
+  // Node created on success. Empty until CompleteUpload returns.
+  string node_id = 15;
+  // Time at which the session was created. Read-only.
+  google.protobuf.Timestamp created_at = 16;
+  // Time at which the session was last updated. Read-only.
+  google.protobuf.Timestamp updated_at = 17;
+  // Time at which the session stops accepting parts. Read-only.
+  google.protobuf.Timestamp expires_at = 18;
+  // Last error recorded by the server, for diagnostics.
+  string last_error = 19;
+}
+
+// UploadSessionSet is a paginated collection of upload sessions.
+message UploadSessionSet {
+  repeated UploadSession uploads = 1;
+  string next_page_token = 2;
+  int64 total_size = 3;
+}
+
+// UploadPart is one stored part of a multipart upload.
+message UploadPart {
+  // One-based part number.
+  int32 part_number = 1;
+  int64 size = 2;
+  // Digest reported by the storage backend, used to assemble the object.
+  string etag = 3;
+  // Presigned URL to PUT this part directly to object storage. Only populated
+  // for UPLOAD_MODE_PRESIGNED.
+  string upload_url = 4;
+  // Expiry of upload_url.
+  google.protobuf.Timestamp url_expires_at = 5;
+  // Headers the client must send with upload_url.
+  map<string, string> headers = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+// UploadPartSet is a collection of stored parts.
+message UploadPartSet {
+  string upload_id = 1;
+  repeated UploadPart parts = 2;
+}
+
+// InitiateUploadRequest is the input for FileService.InitiateUpload.
+message InitiateUploadRequest {
+  // Destination folder. Empty targets the caller's root level.
+  string parent_id = 1;
+  // Destination file name.
+  string name = 2 [(google.api.field_behavior) = REQUIRED];
+  // Total size in bytes. Required, and used to plan the parts and to check the
+  // quota before a single byte is transferred.
+  int64 size = 3 [(google.api.field_behavior) = REQUIRED];
+  // Content type. Inferred from the extension when empty.
+  string mime_type = 4;
+  // Requested part size in bytes. Clamped to the configured bounds and
+  // rounded up to a multiple of 256 KiB.
+  int64 chunk_size = 5;
+  // Requested transport. Defaults to the deployment default.
+  UploadMode mode = 6;
+  // Behaviour when the destination name is taken. Defaults to RENAME.
+  ConflictPolicy conflict_policy = 7;
+  // Optional. Expected SHA-256 digest of the whole file, verified at
+  // completion.
+  string etag = 8;
+  // Optional. Description stored on the resulting node.
+  string description = 9;
+  // Optional. Key/value pairs stored on the resulting node.
+  map<string, string> metadata = 10;
+  // Resume an existing session with this id instead of creating a new one.
+  string resumable_upload_id = 11;
+}
+
+// ListUploadsRequest is the input for FileService.ListUploads.
+message ListUploadsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  // Optional. Restrict to one status.
+  UploadStatus status = 3;
+  // Optional. Restrict to a destination folder.
+  string parent_id = 4;
+}
+
+// GetUploadRequest is the input for FileService.GetUpload.
+message GetUploadRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// ListUploadPartsRequest is the input for FileService.ListUploadParts.
+message ListUploadPartsRequest {
+  string upload_id = 1 [(google.api.field_behavior) = REQUIRED];
+  // Optional. Only return parts with a number greater than this value, which
+  // keeps a resume handshake small.
+  int32 from_part_number = 2;
+}
+
+// UploadChunkRequest is the input for FileService.UploadChunk.
+message UploadChunkRequest {
+  string upload_id = 1 [(google.api.field_behavior) = REQUIRED];
+  // One-based part number.
+  int32 part_number = 2 [(google.api.field_behavior) = REQUIRED];
+  // Part payload. Over JSON this field is a base64 string; the raw streaming
+  // binding sends the same bytes as an application/octet-stream body.
+  bytes content = 3;
+  // Optional. Digest the client computed for the part.
+  string etag = 4;
+}
+
+// ConfirmUploadPartRequest is the input for FileService.ConfirmUploadPart.
+message ConfirmUploadPartRequest {
+  string upload_id = 1 [(google.api.field_behavior) = REQUIRED];
+  int32 part_number = 2 [(google.api.field_behavior) = REQUIRED];
+  // Digest returned by the storage backend for the uploaded part.
+  string etag = 3 [(google.api.field_behavior) = REQUIRED];
+  // Size of the part in bytes.
+  int64 size = 4;
+}
+
+// CompleteUploadRequest is the input for FileService.CompleteUpload.
+message CompleteUploadRequest {
+  string upload_id = 1 [(google.api.field_behavior) = REQUIRED];
+  // Optional. SHA-256 digest of the assembled content.
+  string etag = 2;
+  // Optional. Note attached to the created version.
+  string comment = 3;
+}
+
+// AbortUploadRequest is the input for FileService.AbortUpload.
+message AbortUploadRequest {
+  string upload_id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// UploadSmallFileRequest is the input for FileService.UploadSmallFile.
+message UploadSmallFileRequest {
+  string parent_id = 1;
+  string name = 2 [(google.api.field_behavior) = REQUIRED];
+  // Payload. Over JSON this field is a base64 string.
+  bytes content = 3 [(google.api.field_behavior) = REQUIRED];
+  string mime_type = 4;
+  ConflictPolicy conflict_policy = 5;
+  string description = 6;
+  map<string, string> metadata = 7;
+}
+
+// GetDownloadUrlRequest is the input for FileService.GetDownloadUrl.
+message GetDownloadUrlRequest {
+  string node_id = 1 [(google.api.field_behavior) = REQUIRED];
+  // Requested lifetime in seconds. Clamped to the configured maximum.
+  int32 expires_in_seconds = 2;
+  // Serve inline instead of as an attachment.
+  bool inline = 3;
+  // Override the file name offered to the client.
+  string file_name = 4;
+}
+
+// GetArchiveUrlRequest is the input for FileService.GetArchiveUrl.
+message GetArchiveUrlRequest {
+  string node_id = 1 [(google.api.field_behavior) = REQUIRED];
+  int32 expires_in_seconds = 2;
+  // Name of the produced archive without the extension.
+  string archive_name = 3;
+}
+
+// GetPreviewUrlRequest is the input for FileService.GetPreviewUrl.
+message GetPreviewUrlRequest {
+  string node_id = 1 [(google.api.field_behavior) = REQUIRED];
+  int32 expires_in_seconds = 2;
+  // Return the thumbnail instead of the full preview.
+  bool thumbnail = 3;
+}

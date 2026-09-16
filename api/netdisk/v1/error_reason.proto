@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package netdisk.v1;
+
+option go_package = "nagisa/api/netdisk/v1;v1";
+option java_multiple_files = true;
+option java_package = "io.nagisa.netdisk.v1";
+option java_outer_classname = "ErrorReasonProto";
+option objc_class_prefix = "APINetdiskV1";
+
+// ErrorReason enumerates every business failure the netdisk API can report.
+// Values are carried in the `reason` metadata field of the kratos error
+// payload, so clients can branch on them without parsing messages.
+enum ErrorReason {
+  NETDISK_UNSPECIFIED = 0;
+
+  // The requested resource does not exist or is hidden from the caller.
+  NETDISK_NOT_FOUND = 1;
+  // The request payload is malformed or fails a field constraint.
+  NETDISK_INVALID_ARGUMENT = 2;
+  // The caller presented no credential, or the credential is invalid or
+  // expired.
+  NETDISK_UNAUTHENTICATED = 3;
+  // The caller is authenticated but lacks the required permission on the
+  // target resource.
+  NETDISK_PERMISSION_DENIED = 4;
+  // The request conflicts with the current state of the resource, for example
+  // a name that is already taken in the target folder.
+  NETDISK_CONFLICT = 5;
+  // An unexpected server-side failure.
+  NETDISK_INTERNAL = 6;
+  // A downstream dependency (object storage, database) is unavailable.
+  NETDISK_UNAVAILABLE = 7;
+  // The caller's storage quota would be exceeded by the operation.
+  NETDISK_QUOTA_EXCEEDED = 8;
+  // The object storage backend rejected the operation.
+  NETDISK_STORAGE_ERROR = 9;
+  // The node is password protected and the caller has not unlocked it.
+  NETDISK_NODE_LOCKED = 10;
+  // A sibling node already uses the requested name.
+  NETDISK_NAME_CONFLICT = 11;
+  // The move would place a folder inside its own subtree.
+  NETDISK_CYCLE_DETECTED = 12;
+  // The upload session still has missing or mismatched parts.
+  NETDISK_UPLOAD_INCOMPLETE = 13;
+  // The upload session has passed its expiry and can no longer be completed.
+  NETDISK_UPLOAD_EXPIRED = 14;
+  // The payload or declared size exceeds the configured limit.
+  NETDISK_TOO_LARGE = 15;
+  // The operation is not supported for this resource kind.
+  NETDISK_UNSUPPORTED = 16;
+  // A rate limit or concurrency limit was reached.
+  NETDISK_RESOURCE_EXHAUSTED = 17;
+  // A conditional request failed, for example an etag or generation mismatch.
+  NETDISK_PRECONDITION_FAILED = 18;
+  // The resource already exists and the conflict policy is FAIL.
+  NETDISK_ALREADY_EXISTS = 19;
+  // The operation was aborted by the client or by the server.
+  NETDISK_ABORTED = 20;
+  // The account is disabled or has been removed.
+  NETDISK_ACCOUNT_DISABLED = 21;
+}

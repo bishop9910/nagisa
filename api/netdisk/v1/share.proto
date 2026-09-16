@@ -1,0 +1,284 @@
+syntax = "proto3";
+
+package netdisk.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+import "netdisk/v1/common.proto";
+import "netdisk/v1/node.proto";
+
+option go_package = "nagisa/api/netdisk/v1;v1";
+option java_multiple_files = true;
+option java_package = "io.nagisa.netdisk.v1";
+option java_outer_classname = "ShareProto";
+option objc_class_prefix = "APINetdiskV1";
+
+// ShareService publishes nodes to callers that do not hold an account.
+//
+// A share carries its own capability set, optional password, expiry and
+// download budget. The endpoints below AccessShare, ListShareChildren and
+// GetShareDownloadUrl are public: they authenticate with the share token, and
+// with a share access token once a password protected share has been unlocked.
+service ShareService {
+  // CreateShare grants a capability over a node. Requires PERMISSION_SHARE on
+  // the node and PERMISSION_DOWNLOAD when the share may download.
+  rpc CreateShare (CreateShareRequest) returns (Share) {
+    option (google.api.http) = {
+      post: "/v1/shares/create"
+      body: "*"
+    };
+  }
+
+  // ListShares returns share links. Callers without PERMISSION_USER_MANAGE see
+  // only their own shares.
+  rpc ListShares (ListSharesRequest) returns (ShareSet) {
+    option (google.api.http) = {
+      get: "/v1/shares/list"
+    };
+  }
+
+  // ListSharesByNode returns the shares attached to one node.
+  rpc ListSharesByNode (ListSharesByNodeRequest) returns (ShareSet) {
+    option (google.api.http) = {
+      get: "/v1/shares/by-node/list"
+    };
+  }
+
+  // AccessShare resolves a share token into the shared node and its first
+  // level of children. This endpoint is public. When the share is password
+  // protected and no valid access_token is supplied it returns
+  // NETDISK_NODE_LOCKED together with a password hint.
+  rpc AccessShare (AccessShareRequest) returns (ShareAccess) {
+    option (google.api.http) = {
+      post: "/v1/shares/access"
+      body: "*"
+    };
+  }
+
+  // ListShareChildren browses a shared folder. This endpoint is public and
+  // requires the access_token returned by AccessShare for protected shares.
+  rpc ListShareChildren (ListShareChildrenRequest) returns (NodeSet) {
+    option (google.api.http) = {
+      post: "/v1/shares/children/list"
+      body: "*"
+    };
+  }
+
+  // GetShareDownloadUrl returns a signed URL for a node inside a share. This
+  // endpoint is public and honours the share capability set, its expiry, its
+  // password and its download budget.
+  rpc GetShareDownloadUrl (GetShareDownloadUrlRequest) returns (SignedUrl) {
+    option (google.api.http) = {
+      post: "/v1/shares/download-url"
+      body: "*"
+    };
+  }
+
+  // GetShare returns one share link by id. The caller must own the share or
+  // hold PERMISSION_USER_MANAGE.
+  rpc GetShare (GetShareRequest) returns (Share) {
+    option (google.api.http) = {
+      get: "/v1/shares/{id}"
+    };
+  }
+
+  // UpdateShare changes the capability set, password, expiry or budget of an
+  // existing share.
+  rpc UpdateShare (UpdateShareRequest) returns (Share) {
+    option (google.api.http) = {
+      put: "/v1/shares/update"
+      body: "*"
+    };
+  }
+
+  // DeleteShare revokes a share immediately.
+  rpc DeleteShare (DeleteShareRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/shares/{id}"
+    };
+  }
+}
+
+// Share is one share link.
+message Share {
+  string id = 1;
+  // URL safe token that identifies the share. Read-only after creation.
+  string token = 2;
+  // Node the share points at.
+  string node_id = 3;
+  // Snapshot of the shared node.
+  Node node = 4;
+  // Account that created the share.
+  string owner_id = 5;
+  // Display name of the owner.
+  string owner_name = 6;
+  // Optional label shown to visitors.
+  string name = 7;
+  // Optional note shown to visitors.
+  string description = 8;
+  // Capabilities conveyed by the link.
+  repeated Permission permissions = 9;
+  // Bitmask form of permissions.
+  int64 permissions_mask = 10;
+  // Whether a password must be supplied through AccessShare.
+  bool password_protected = 11;
+  // Hint shown next to the password prompt.
+  string password_hint = 12;
+  // Time at which the link stops working. Zero means it never expires.
+  google.protobuf.Timestamp expires_at = 13;
+  // Maximum number of downloads. Zero means unlimited.
+  int64 max_downloads = 14;
+  // Downloads served so far.
+  int64 download_count = 15;
+  // Successful accesses so far.
+  int64 view_count = 16;
+  ShareStatus status = 17;
+  // Fully qualified share URL, built from the configured public base URL.
+  string url = 18;
+  // Whether the calling account may modify or revoke the share.
+  bool editable = 19;
+  google.protobuf.Timestamp created_at = 20;
+  google.protobuf.Timestamp updated_at = 21;
+  string created_by = 22;
+}
+
+// ShareSet is a paginated collection of shares.
+message ShareSet {
+  repeated Share shares = 1;
+  string next_page_token = 2;
+  int64 total_size = 3;
+}
+
+// ShareAccess is the public view of a share after the token, and the password
+// when required, have been accepted.
+message ShareAccess {
+  Share share = 1;
+  // The shared node.
+  Node node = 2;
+  // First level of children when the shared node is a folder.
+  repeated Node children = 3;
+  string next_page_token = 4;
+  // Token to present as access_token on subsequent public calls. Empty for
+  // shares without a password.
+  string access_token = 5;
+  // Lifetime of access_token in seconds.
+  int32 expires_in = 6;
+  google.protobuf.Timestamp expires_at = 7;
+}
+
+// CreateShareRequest is the input for ShareService.CreateShare.
+message CreateShareRequest {
+  // Node to share.
+  string node_id = 1 [(google.api.field_behavior) = REQUIRED];
+  // Optional label.
+  string name = 2;
+  // Optional note.
+  string description = 3;
+  // Capabilities to convey. Only PERMISSION_VIEW, PERMISSION_DOWNLOAD and
+  // PERMISSION_UPLOAD are meaningful here. Defaults to VIEW and DOWNLOAD.
+  repeated Permission permissions = 4;
+  // Bitmask alternative to permissions.
+  int64 permissions_mask = 5;
+  // RSA-OAEP(SHA-256) encrypted, base64 encoded link password. Empty means the
+  // link needs no password.
+  string password = 6;
+  // Hint shown next to the password prompt.
+  string password_hint = 7;
+  // Time at which the link stops working. Zero means it never expires.
+  google.protobuf.Timestamp expires_at = 8;
+  // Maximum number of downloads. Zero means unlimited.
+  int64 max_downloads = 9;
+  // Requested token. The server generates one when empty.
+  string token = 10;
+}
+
+// ListSharesRequest is the input for ShareService.ListShares.
+message ListSharesRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  // Optional. The standard list filter.
+  // Supported fields: `node_id`, `owner_id`, `name`, `status`, `token`,
+  // `created_at` and `expires_at` ranges.
+  string filter = 3;
+  // Optional. Comma-separated ordering fields. Supported fields: `name`,
+  // `created_at`, `updated_at`, `expires_at`, `download_count`, `view_count`.
+  string order_by = 4;
+}
+
+// ListSharesByNodeRequest is the input for ShareService.ListSharesByNode.
+message ListSharesByNodeRequest {
+  string node_id = 1 [(google.api.field_behavior) = REQUIRED];
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+// AccessShareRequest is the input for ShareService.AccessShare.
+message AccessShareRequest {
+  // Share token.
+  string token = 1 [(google.api.field_behavior) = REQUIRED];
+  // RSA-OAEP(SHA-256) encrypted, base64 encoded link password.
+  string password = 2;
+  // Access token from a previous successful access, used to re-enter a
+  // protected share without resending the password.
+  string access_token = 3;
+  // Optional. Folder inside the share to resolve. Empty resolves the shared
+  // node itself.
+  string node_id = 4;
+  int32 page_size = 5;
+  string page_token = 6;
+}
+
+// ListShareChildrenRequest is the input for ShareService.ListShareChildren.
+message ListShareChildrenRequest {
+  string token = 1 [(google.api.field_behavior) = REQUIRED];
+  // Folder inside the share to list. Empty lists the shared node's children.
+  string node_id = 2;
+  // Access token returned by AccessShare for protected shares.
+  string access_token = 3;
+  int32 page_size = 4;
+  string page_token = 5;
+  // Optional. Comma-separated ordering fields, same syntax as
+  // ListNodesRequest.order_by.
+  string order_by = 6;
+}
+
+// GetShareDownloadUrlRequest is the input for
+// ShareService.GetShareDownloadUrl.
+message GetShareDownloadUrlRequest {
+  string token = 1 [(google.api.field_behavior) = REQUIRED];
+  // File inside the share. Empty downloads the shared node when it is a file,
+  // or an archive when it is a folder.
+  string node_id = 2;
+  string access_token = 3;
+  int32 expires_in_seconds = 4;
+  bool inline = 5;
+}
+
+// GetShareRequest is the input for ShareService.GetShare.
+message GetShareRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// UpdateShareRequest is the input for ShareService.UpdateShare.
+message UpdateShareRequest {
+  // Share carrying the new values. share.id identifies the target.
+  Share share = 1 [(google.api.field_behavior) = REQUIRED];
+  // Field paths to overwrite. Supported paths: `name`, `description`,
+  // `permissions_mask`, `password`, `password_hint`, `expires_at`,
+  // `max_downloads`, `status`.
+  google.protobuf.FieldMask update_mask = 2 [(google.api.field_behavior) = REQUIRED];
+  // RSA-OAEP(SHA-256) encrypted, base64 encoded new password. Applied when
+  // `password` is listed in update_mask.
+  string password = 3;
+  // Clear the password. Applied when `password` is listed in update_mask and
+  // this flag is set.
+  bool remove_password = 4;
+}
+
+// DeleteShareRequest is the input for ShareService.DeleteShare.
+message DeleteShareRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}

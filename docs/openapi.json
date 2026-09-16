@@ -1,0 +1,6235 @@
+{
+  "components": {
+    "responses": {
+      "BadRequest": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/netdisk.v1.Error"
+            }
+          }
+        },
+        "description": "请求不合法或违反字段约束"
+      },
+      "Conflict": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/netdisk.v1.Error"
+            }
+          }
+        },
+        "description": "与当前状态冲突，例如同名节点已存在"
+      },
+      "Forbidden": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/netdisk.v1.Error"
+            }
+          }
+        },
+        "description": "已认证但缺少所需权限，或账号被禁用，或文件夹未解锁"
+      },
+      "Internal": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/netdisk.v1.Error"
+            }
+          }
+        },
+        "description": "服务端错误，详见审计日志与响应中的 reason"
+      },
+      "NotFound": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/netdisk.v1.Error"
+            }
+          }
+        },
+        "description": "资源不存在或对调用方不可见"
+      },
+      "ResourceExhausted": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/netdisk.v1.Error"
+            }
+          }
+        },
+        "description": "触发限流或配额已用尽"
+      },
+      "TooLarge": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/netdisk.v1.Error"
+            }
+          }
+        },
+        "description": "请求体或声明的大小超过配置上限"
+      },
+      "Unauthenticated": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/netdisk.v1.Error"
+            }
+          }
+        },
+        "description": "缺少访问令牌，或令牌无效、已过期"
+      },
+      "Unavailable": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/netdisk.v1.Error"
+            }
+          }
+        },
+        "description": "依赖不可用，例如对象存储或数据库"
+      }
+    },
+    "schemas": {
+      "netdisk.v1.AbortUploadRequest": {
+        "description": "AbortUploadRequest is the input for FileService.AbortUpload.",
+        "properties": {
+          "uploadId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "uploadId"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.AccessShareRequest": {
+        "description": "AccessShareRequest is the input for ShareService.AccessShare.",
+        "properties": {
+          "accessToken": {
+            "description": "Access token from a previous successful access, used to re-enter a\n protected share without resending the password.",
+            "type": "string"
+          },
+          "nodeId": {
+            "description": "Optional. Folder inside the share to resolve. Empty resolves the shared\n node itself.",
+            "type": "string"
+          },
+          "pageSize": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "pageToken": {
+            "type": "string"
+          },
+          "password": {
+            "description": "RSA-OAEP(SHA-256) encrypted, base64 encoded link password.",
+            "type": "string"
+          },
+          "token": {
+            "description": "Share token.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.AclEntry": {
+        "description": "AclEntry grants or denies a permission set on a node for one subject.",
+        "properties": {
+          "createdAt": {
+            "description": "Time at which the entry was created. Server-assigned, read-only.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "createdBy": {
+            "description": "Account that created the entry. Server-assigned, read-only.",
+            "type": "string"
+          },
+          "effect": {
+            "description": "Whether the entry allows or denies.",
+            "format": "enum",
+            "type": "integer"
+          },
+          "id": {
+            "description": "Server-assigned identifier. Ignored on input when creating entries.",
+            "type": "string"
+          },
+          "inherit": {
+            "description": "Whether the entry is inherited by descendants. Deny entries always apply\n to the whole subtree regardless of this flag.",
+            "type": "boolean"
+          },
+          "nodeId": {
+            "description": "Node the entry is attached to.",
+            "type": "string"
+          },
+          "permissions": {
+            "description": "Permissions covered by this entry.",
+            "items": {
+              "format": "enum",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "permissionsMask": {
+            "description": "Bitmask form of permissions, useful for compact storage and comparison.",
+            "type": "string"
+          },
+          "subjectId": {
+            "description": "Account id for SUBJECT_TYPE_USER, role name for SUBJECT_TYPE_ROLE, empty\n for SUBJECT_TYPE_EVERYONE.",
+            "type": "string"
+          },
+          "subjectName": {
+            "description": "Display name of the subject, resolved by the server.",
+            "type": "string"
+          },
+          "subjectType": {
+            "description": "What the entry applies to.",
+            "format": "enum",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.AuditActionCount": {
+        "description": "AuditActionCount is one entry of an aggregated audit summary.",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "actionDisplay": {
+            "type": "string"
+          },
+          "count": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.AuditActorCount": {
+        "description": "AuditActorCount is one actor of an aggregated audit summary.",
+        "properties": {
+          "actorId": {
+            "type": "string"
+          },
+          "actorName": {
+            "type": "string"
+          },
+          "count": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.AuditLog": {
+        "description": "AuditLog is one recorded action.",
+        "properties": {
+          "action": {
+            "description": "Machine readable action name, for example \"node.create_folder\".",
+            "type": "string"
+          },
+          "actionDisplay": {
+            "description": "Human readable Chinese description.",
+            "type": "string"
+          },
+          "actorId": {
+            "description": "Account that performed the action. Empty for anonymous callers.",
+            "type": "string"
+          },
+          "actorName": {
+            "description": "Account name at the time of the action.",
+            "type": "string"
+          },
+          "createdAt": {
+            "description": "Time the action completed.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "detail": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Free-form detail, for example the previous and new name.",
+            "type": "object"
+          },
+          "errorReason": {
+            "description": "Error reason when success is false.",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "ip": {
+            "description": "Source address.",
+            "type": "string"
+          },
+          "requestId": {
+            "description": "Correlation id shared with the server logs.",
+            "type": "string"
+          },
+          "success": {
+            "description": "Whether the action succeeded.",
+            "type": "boolean"
+          },
+          "targetId": {
+            "description": "Identifier of the affected resource.",
+            "type": "string"
+          },
+          "targetName": {
+            "description": "Display name of the affected resource at the time of the action.",
+            "type": "string"
+          },
+          "targetType": {
+            "description": "Resource family, for example \"node\", \"user\" or \"share\".",
+            "type": "string"
+          },
+          "userAgent": {
+            "description": "Client user agent.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.AuditLogSet": {
+        "description": "AuditLogSet is a paginated collection of audit entries.",
+        "properties": {
+          "logs": {
+            "items": {
+              "$ref": "#/components/schemas/netdisk.v1.AuditLog"
+            },
+            "type": "array"
+          },
+          "nextPageToken": {
+            "type": "string"
+          },
+          "totalSize": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.AuditSummary": {
+        "description": "AuditSummary aggregates the audit trail over a time window.",
+        "properties": {
+          "byAction": {
+            "items": {
+              "$ref": "#/components/schemas/netdisk.v1.AuditActionCount"
+            },
+            "type": "array"
+          },
+          "byActor": {
+            "items": {
+              "$ref": "#/components/schemas/netdisk.v1.AuditActorCount"
+            },
+            "type": "array"
+          },
+          "byDay": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Counts keyed by ISO-8601 date.",
+            "type": "object"
+          },
+          "failureCount": {
+            "type": "string"
+          },
+          "from": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "to": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "total": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.AuthConfig": {
+        "description": "AuthConfig is the public pre-login parameter set.",
+        "properties": {
+          "accessTokenTtlSeconds": {
+            "description": "Access token lifetime in seconds.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "guestLoginEnabled": {
+            "description": "Whether the deployment hands out a read-only guest session without a\n password through AuthService.GuestLogin.",
+            "type": "boolean"
+          },
+          "passwordEncoding": {
+            "description": "Encoding the client must apply to every password field, currently\n \"rsa-oaep-sha256\".",
+            "type": "string"
+          },
+          "passwordKeyId": {
+            "description": "Identifier of the password key, echoed by clients so a key rotation can be\n detected without a failed login.",
+            "type": "string"
+          },
+          "passwordPublicKey": {
+            "description": "PEM encoded PKCS#8 RSA public key.",
+            "type": "string"
+          },
+          "plainPasswordAllowed": {
+            "description": "Whether the deployment accepts an unencoded password. Only ever true in a\n local development configuration.",
+            "type": "boolean"
+          },
+          "refreshTokenTtlSeconds": {
+            "description": "Refresh token lifetime in seconds.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "serverTime": {
+            "description": "Server clock at the time of the response.",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.ChangePasswordRequest": {
+        "description": "ChangePasswordRequest is the input for AuthService.ChangePassword.",
+        "properties": {
+          "currentPassword": {
+            "description": "RSA-OAEP(SHA-256) encrypted, base64 encoded current password.",
+            "type": "string"
+          },
+          "newPassword": {
+            "description": "RSA-OAEP(SHA-256) encrypted, base64 encoded new password.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "currentPassword",
+          "newPassword"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.CompleteUploadRequest": {
+        "description": "CompleteUploadRequest is the input for FileService.CompleteUpload.",
+        "properties": {
+          "comment": {
+            "description": "Optional. Note attached to the created version.",
+            "type": "string"
+          },
+          "etag": {
+            "description": "Optional. SHA-256 digest of the assembled content.",
+            "type": "string"
+          },
+          "uploadId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "uploadId"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.ConfirmUploadPartRequest": {
+        "description": "ConfirmUploadPartRequest is the input for FileService.ConfirmUploadPart.",
+        "properties": {
+          "etag": {
+            "description": "Digest returned by the storage backend for the uploaded part.",
+            "type": "string"
+          },
+          "partNumber": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "size": {
+            "description": "Size of the part in bytes.",
+            "type": "string"
+          },
+          "uploadId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "uploadId",
+          "partNumber",
+          "etag"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.CopyNodesRequest": {
+        "description": "CopyNodesRequest is the input for NodeService.CopyNodes.",
+        "properties": {
+          "conflictPolicy": {
+            "format": "enum",
+            "type": "integer"
+          },
+          "ids": {
+            "description": "Nodes to copy.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "newNames": {
+            "description": "Optional. Rename a node during the copy. Must have the same length as ids\n when set.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "targetParentId": {
+            "description": "Destination folder. Empty copies the nodes to the caller's root level.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.CreateFolderRequest": {
+        "description": "CreateFolderRequest is the input for NodeService.CreateFolder.",
+        "properties": {
+          "acl": {
+            "description": "ACL applied to the new folder in the same transaction. A failing entry\n aborts the creation.",
+            "items": {
+              "$ref": "#/components/schemas/netdisk.v1.AclEntry"
+            },
+            "type": "array"
+          },
+          "conflictPolicy": {
+            "description": "Behaviour when a sibling with the same name exists. Defaults to FAIL.",
+            "format": "enum",
+            "type": "integer"
+          },
+          "folder": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/netdisk.v1.Node"
+              }
+            ],
+            "description": "Folder to create. Only name, parent_id, description, visibility,\n password, password_hint and metadata are read."
+          },
+          "password": {
+            "description": "RSA-OAEP(SHA-256) encrypted, base64 encoded folder password. Set to\n protect the folder.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "folder"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.CreateShareRequest": {
+        "description": "CreateShareRequest is the input for ShareService.CreateShare.",
+        "properties": {
+          "description": {
+            "description": "Optional note.",
+            "type": "string"
+          },
+          "expiresAt": {
+            "description": "Time at which the link stops working. Zero means it never expires.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "maxDownloads": {
+            "description": "Maximum number of downloads. Zero means unlimited.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Optional label.",
+            "type": "string"
+          },
+          "nodeId": {
+            "description": "Node to share.",
+            "type": "string"
+          },
+          "password": {
+            "description": "RSA-OAEP(SHA-256) encrypted, base64 encoded link password. Empty means the\n link needs no password.",
+            "type": "string"
+          },
+          "passwordHint": {
+            "description": "Hint shown next to the password prompt.",
+            "type": "string"
+          },
+          "permissions": {
+            "description": "Capabilities to convey. Only PERMISSION_VIEW, PERMISSION_DOWNLOAD and\n PERMISSION_UPLOAD are meaningful here. Defaults to VIEW and DOWNLOAD.",
+            "items": {
+              "format": "enum",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "permissionsMask": {
+            "description": "Bitmask alternative to permissions.",
+            "type": "string"
+          },
+          "token": {
+            "description": "Requested token. The server generates one when empty.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "nodeId"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.CreateUserRequest": {
+        "description": "CreateUserRequest is the input for UserService.CreateUser.",
+        "properties": {
+          "mustChangePassword": {
+            "description": "Force a password change at first login.",
+            "type": "boolean"
+          },
+          "password": {
+            "description": "RSA-OAEP(SHA-256) encrypted, base64 encoded initial password.",
+            "type": "string"
+          },
+          "user": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/netdisk.v1.User"
+              }
+            ],
+            "description": "Account to create. id, used_bytes, created_at and updated_at are ignored."
+          }
+        },
+        "required": [
+          "user",
+          "password"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.DeleteNodesReply": {
+        "description": "DeleteNodesReply reports the outcome of a delete batch.",
+        "properties": {
+          "affectedCount": {
+            "description": "Number of nodes affected, including descendants.",
+            "type": "string"
+          },
+          "deletedIds": {
+            "description": "Nodes that were moved to the trash or purged.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "reclaimedBytes": {
+            "description": "Bytes reclaimed. Only non-zero for permanent deletes.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.DeleteNodesRequest": {
+        "description": "DeleteNodesRequest is the input for NodeService.DeleteNodes.",
+        "properties": {
+          "ids": {
+            "description": "Nodes to delete.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "permanent": {
+            "description": "Skip the trash and delete permanently. Requires\n PERMISSION_TRASH_MANAGE.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.EmptyTrashRequest": {
+        "description": "EmptyTrashRequest is the input for NodeService.EmptyTrash.",
+        "properties": {
+          "trashedBefore": {
+            "description": "Optional. Only empty the trash entries older than this time.",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.Error": {
+        "description": "统一错误响应。reason 取自 ErrorReason 枚举，调用方应按其分支。",
+        "properties": {
+          "code": {
+            "description": "HTTP 状态码",
+            "format": "int32",
+            "type": "integer"
+          },
+          "message": {
+            "description": "人类可读的说明",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "附加上下文",
+            "type": "object"
+          },
+          "reason": {
+            "description": "机器可读的错误原因",
+            "enum": [
+              "NETDISK_NOT_FOUND",
+              "NETDISK_INVALID_ARGUMENT",
+              "NETDISK_UNAUTHENTICATED",
+              "NETDISK_PERMISSION_DENIED",
+              "NETDISK_CONFLICT",
+              "NETDISK_INTERNAL",
+              "NETDISK_UNAVAILABLE",
+              "NETDISK_QUOTA_EXCEEDED",
+              "NETDISK_STORAGE_ERROR",
+              "NETDISK_NODE_LOCKED",
+              "NETDISK_NAME_CONFLICT",
+              "NETDISK_CYCLE_DETECTED",
+              "NETDISK_UPLOAD_INCOMPLETE",
+              "NETDISK_UPLOAD_EXPIRED",
+              "NETDISK_TOO_LARGE",
+              "NETDISK_UNSUPPORTED",
+              "NETDISK_RESOURCE_EXHAUSTED",
+              "NETDISK_PRECONDITION_FAILED",
+              "NETDISK_ALREADY_EXISTS",
+              "NETDISK_ABORTED",
+              "NETDISK_ACCOUNT_DISABLED"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.GetShareDownloadUrlRequest": {
+        "description": "GetShareDownloadUrlRequest is the input for\n ShareService.GetShareDownloadUrl.",
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "expiresInSeconds": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "inline": {
+            "type": "boolean"
+          },
+          "nodeId": {
+            "description": "File inside the share. Empty downloads the shared node when it is a file,\n or an archive when it is a folder.",
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.GuestLoginRequest": {
+        "description": "GuestLoginRequest is the input for AuthService.GuestLogin.",
+        "properties": {
+          "ip": {
+            "description": "Client address hint used when the request does not come through a proxy.",
+            "type": "string"
+          },
+          "userAgent": {
+            "description": "Client user agent hint.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.HealthStatus": {
+        "description": "HealthStatus reports dependency reachability.",
+        "properties": {
+          "checks": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Per dependency status, for example {\"database\": \"ok\"}.",
+            "type": "object"
+          },
+          "serverTime": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "status": {
+            "description": "Overall status: \"ok\", \"degraded\" or \"down\".",
+            "type": "string"
+          },
+          "uptimeSeconds": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.InitiateUploadRequest": {
+        "description": "InitiateUploadRequest is the input for FileService.InitiateUpload.",
+        "properties": {
+          "chunkSize": {
+            "description": "Requested part size in bytes. Clamped to the configured bounds and\n rounded up to a multiple of 256 KiB.",
+            "type": "string"
+          },
+          "conflictPolicy": {
+            "description": "Behaviour when the destination name is taken. Defaults to RENAME.",
+            "format": "enum",
+            "type": "integer"
+          },
+          "description": {
+            "description": "Optional. Description stored on the resulting node.",
+            "type": "string"
+          },
+          "etag": {
+            "description": "Optional. Expected SHA-256 digest of the whole file, verified at\n completion.",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Optional. Key/value pairs stored on the resulting node.",
+            "type": "object"
+          },
+          "mimeType": {
+            "description": "Content type. Inferred from the extension when empty.",
+            "type": "string"
+          },
+          "mode": {
+            "description": "Requested transport. Defaults to the deployment default.",
+            "format": "enum",
+            "type": "integer"
+          },
+          "name": {
+            "description": "Destination file name.",
+            "type": "string"
+          },
+          "parentId": {
+            "description": "Destination folder. Empty targets the caller's root level.",
+            "type": "string"
+          },
+          "resumableUploadId": {
+            "description": "Resume an existing session with this id instead of creating a new one.",
+            "type": "string"
+          },
+          "size": {
+            "description": "Total size in bytes. Required, and used to plan the parts and to check the\n quota before a single byte is transferred.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "size"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.ListShareChildrenRequest": {
+        "description": "ListShareChildrenRequest is the input for ShareService.ListShareChildren.",
+        "properties": {
+          "accessToken": {
+            "description": "Access token returned by AccessShare for protected shares.",
+            "type": "string"
+          },
+          "nodeId": {
+            "description": "Folder inside the share to list. Empty lists the shared node's children.",
+            "type": "string"
+          },
+          "orderBy": {
+            "description": "Optional. Comma-separated ordering fields, same syntax as\n ListNodesRequest.order_by.",
+            "type": "string"
+          },
+          "pageSize": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "pageToken": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.LoginReply": {
+        "description": "LoginReply carries the token pair and the authenticated account.",
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "expiresIn": {
+            "description": "Access token lifetime in seconds.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "refreshExpiresIn": {
+            "description": "Refresh token lifetime in seconds.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "refreshToken": {
+            "type": "string"
+          },
+          "tokenType": {
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/netdisk.v1.User"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.LoginRequest": {
+        "description": "LoginRequest is the input for AuthService.Login.",
+        "properties": {
+          "ip": {
+            "description": "Client address hint used when the request does not come through a proxy.",
+            "type": "string"
+          },
+          "password": {
+            "description": "RSA-OAEP(SHA-256) encrypted, base64 encoded password.",
+            "type": "string"
+          },
+          "rememberMe": {
+            "description": "Whether the refresh token should be long lived.",
+            "type": "boolean"
+          },
+          "userAgent": {
+            "description": "Client user agent hint.",
+            "type": "string"
+          },
+          "username": {
+            "description": "Account name.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.LogoutRequest": {
+        "description": "LogoutRequest is the input for AuthService.Logout.",
+        "properties": {
+          "refreshToken": {
+            "description": "Refresh token to revoke. Optional when the caller is authenticated.",
+            "type": "string"
+          },
+          "revokeAll": {
+            "description": "Revoke every refresh token of the account instead of a single one.",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.MaintenanceReport": {
+        "description": "MaintenanceReport describes what a maintenance run did.",
+        "properties": {
+          "deletedObjects": {
+            "description": "Objects released from the pending deletion queue.",
+            "type": "string"
+          },
+          "dryRun": {
+            "type": "boolean"
+          },
+          "durationMs": {
+            "description": "Wall clock duration in milliseconds.",
+            "type": "string"
+          },
+          "expiredShares": {
+            "description": "Share links moved to SHARE_STATUS_EXPIRED.",
+            "type": "string"
+          },
+          "expiredUploads": {
+            "description": "Upload sessions moved to UPLOAD_STATUS_EXPIRED.",
+            "type": "string"
+          },
+          "finishedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "orphanObjects": {
+            "description": "Objects reclaimed because nothing referenced them.",
+            "type": "string"
+          },
+          "purgedNodes": {
+            "description": "Nodes permanently purged after their retention window.",
+            "type": "string"
+          },
+          "recountedUsers": {
+            "description": "Accounts whose used_bytes was recomputed.",
+            "type": "string"
+          },
+          "tasks": {
+            "description": "Tasks that were requested.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "warnings": {
+            "description": "Non-fatal problems encountered.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.MoveNodesRequest": {
+        "description": "MoveNodesRequest is the input for NodeService.MoveNodes.",
+        "properties": {
+          "conflictPolicy": {
+            "description": "Behaviour when the destination already holds a node with the same name.\n Defaults to FAIL.",
+            "format": "enum",
+            "type": "integer"
+          },
+          "ids": {
+            "description": "Nodes to move.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "newNames": {
+            "description": "Optional. Rename a node during the move. Must have the same length as ids\n when set.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "targetParentId": {
+            "description": "Destination folder. Empty moves the nodes to the caller's root level.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.Node": {
+        "description": "Node is the canonical representation of a file or folder.",
+        "properties": {
+          "childCount": {
+            "description": "Number of direct children. Folders only.",
+            "type": "string"
+          },
+          "createdAt": {
+            "description": "Time at which the node was created. Read-only.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "createdBy": {
+            "description": "Account that created the node. Read-only.",
+            "type": "string"
+          },
+          "currentVersionId": {
+            "description": "Identifier of the current content version. Empty for folders.",
+            "type": "string"
+          },
+          "depth": {
+            "description": "Depth below the root. Zero for a root level node.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "description": {
+            "description": "Free-form description. Folders store their purpose here.",
+            "type": "string"
+          },
+          "displayPath": {
+            "description": "Human readable absolute path, for example \"/文档/2024/报告.pdf\".",
+            "type": "string"
+          },
+          "effectivePermissions": {
+            "description": "Permissions the calling account holds on this node.",
+            "items": {
+              "format": "enum",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "effectivePermissionsMask": {
+            "description": "Bitmask form of effective_permissions.",
+            "type": "string"
+          },
+          "etag": {
+            "description": "Object digest recorded at upload completion.",
+            "type": "string"
+          },
+          "extension": {
+            "description": "Lower-case file extension without the dot. Empty for folders.",
+            "type": "string"
+          },
+          "fileCount": {
+            "description": "Number of files in the subtree, including this node when it is a file.",
+            "type": "string"
+          },
+          "folderCount": {
+            "description": "Number of folders in the subtree.",
+            "type": "string"
+          },
+          "hasThumbnail": {
+            "description": "Whether a preview thumbnail has been generated.",
+            "type": "boolean"
+          },
+          "id": {
+            "description": "Application-generated UUIDv7 identifier. Read-only.",
+            "type": "string"
+          },
+          "kind": {
+            "description": "Folder or file.",
+            "format": "enum",
+            "type": "integer"
+          },
+          "locked": {
+            "description": "Whether the caller still has to unlock the node.",
+            "type": "boolean"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Application defined key/value pairs.",
+            "type": "object"
+          },
+          "mimeType": {
+            "description": "Detected content type. Empty for folders.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Entry name, unique among the live children of the parent folder.",
+            "type": "string"
+          },
+          "originalParentId": {
+            "description": "Folder the node was trashed from, used by RestoreNodes. Read-only.",
+            "type": "string"
+          },
+          "owned": {
+            "description": "Whether the caller owns the node.",
+            "type": "boolean"
+          },
+          "ownerId": {
+            "description": "Account that owns the node.",
+            "type": "string"
+          },
+          "ownerName": {
+            "description": "Display name of the owner.",
+            "type": "string"
+          },
+          "parentId": {
+            "description": "Identifier of the containing folder. Empty for a root level node.",
+            "type": "string"
+          },
+          "passwordHint": {
+            "description": "Optional hint shown to callers that have not unlocked the node.",
+            "type": "string"
+          },
+          "passwordProtected": {
+            "description": "Whether a folder password is set.",
+            "type": "boolean"
+          },
+          "path": {
+            "description": "Materialised ancestor path made of node ids, for example \"/a/b/\".",
+            "type": "string"
+          },
+          "shareCount": {
+            "description": "Number of active share links.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "shared": {
+            "description": "Whether at least one active share link points at the node.",
+            "type": "boolean"
+          },
+          "size": {
+            "description": "Size in bytes. Always zero for folders.",
+            "type": "string"
+          },
+          "status": {
+            "description": "Lifecycle state.",
+            "format": "enum",
+            "type": "integer"
+          },
+          "subtreeSize": {
+            "description": "Total bytes in the subtree.",
+            "type": "string"
+          },
+          "trashedAt": {
+            "description": "Time at which the node was moved to the trash. Read-only.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "description": "Time at which the node was last modified. Read-only.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedBy": {
+            "description": "Account that last modified the node. Read-only.",
+            "type": "string"
+          },
+          "versionCount": {
+            "description": "Number of retained content versions.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "visibility": {
+            "description": "Coarse access policy evaluated before the ACL.",
+            "format": "enum",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.NodeAcl": {
+        "description": "NodeAcl is the access control list of a node.",
+        "properties": {
+          "editable": {
+            "description": "Whether the calling account may change the ACL.",
+            "type": "boolean"
+          },
+          "effectivePermissions": {
+            "description": "Effective permissions of the calling account on the node.",
+            "items": {
+              "format": "enum",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "effectivePermissionsMask": {
+            "description": "Bitmask form of effective_permissions.",
+            "type": "string"
+          },
+          "entries": {
+            "description": "Entries stored directly on the node.",
+            "items": {
+              "$ref": "#/components/schemas/netdisk.v1.AclEntry"
+            },
+            "type": "array"
+          },
+          "inheritedEntries": {
+            "description": "Entries inherited from ancestors.",
+            "items": {
+              "$ref": "#/components/schemas/netdisk.v1.AclEntry"
+            },
+            "type": "array"
+          },
+          "nodeId": {
+            "type": "string"
+          },
+          "owned": {
+            "description": "Whether the calling account owns the node.",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.NodePath": {
+        "description": "NodePath is the breadcrumb of a node.",
+        "properties": {
+          "ancestors": {
+            "description": "Ancestors ordered from the root down to, but excluding, the node.",
+            "items": {
+              "$ref": "#/components/schemas/netdisk.v1.Node"
+            },
+            "type": "array"
+          },
+          "displayPath": {
+            "description": "Human readable absolute path.",
+            "type": "string"
+          },
+          "node": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/netdisk.v1.Node"
+              }
+            ],
+            "description": "The node itself."
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.NodeSet": {
+        "description": "NodeSet is a paginated collection of nodes.",
+        "properties": {
+          "nextPageToken": {
+            "type": "string"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/netdisk.v1.Node"
+            },
+            "type": "array"
+          },
+          "totalBytes": {
+            "description": "Aggregate size of the returned page.",
+            "type": "string"
+          },
+          "totalSize": {
+            "description": "Total number of nodes matching the filter, ignoring pagination.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.NodeStats": {
+        "description": "NodeStats summarises a subtree.",
+        "properties": {
+          "fileCount": {
+            "type": "string"
+          },
+          "folderCount": {
+            "type": "string"
+          },
+          "largestFileName": {
+            "description": "Name of the largest file in the subtree.",
+            "type": "string"
+          },
+          "largestFileSize": {
+            "description": "Size of the largest file in the subtree.",
+            "type": "string"
+          },
+          "nodeId": {
+            "type": "string"
+          },
+          "sizeByCategory": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Bytes per mime type family, for example {\"image\": 1024}.",
+            "type": "object"
+          },
+          "totalSize": {
+            "type": "string"
+          },
+          "trashedCount": {
+            "type": "string"
+          },
+          "trashedSize": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.NodeTree": {
+        "description": "NodeTree is a folder with its expanded descendants.",
+        "properties": {
+          "children": {
+            "items": {
+              "$ref": "#/components/schemas/netdisk.v1.NodeTree"
+            },
+            "type": "array"
+          },
+          "node": {
+            "$ref": "#/components/schemas/netdisk.v1.Node"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.NodeUnlock": {
+        "description": "NodeUnlock is the reply of a successful UnlockNode call.",
+        "properties": {
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "expiresIn": {
+            "description": "Lifetime of the token in seconds.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "nodeId": {
+            "type": "string"
+          },
+          "unlockToken": {
+            "description": "Signed token to send in the X-Node-Token header.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.NodeVersion": {
+        "description": "NodeVersion is one retained content revision of a file node.",
+        "properties": {
+          "comment": {
+            "description": "Optional note describing why the revision was kept.",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "createdBy": {
+            "type": "string"
+          },
+          "current": {
+            "description": "Whether this revision is the current content.",
+            "type": "boolean"
+          },
+          "etag": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "mimeType": {
+            "type": "string"
+          },
+          "nodeId": {
+            "type": "string"
+          },
+          "size": {
+            "type": "string"
+          },
+          "version": {
+            "description": "Monotonically increasing revision number within the node.",
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.NodeVersionSet": {
+        "description": "NodeVersionSet is a collection of node versions.",
+        "properties": {
+          "nextPageToken": {
+            "type": "string"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/netdisk.v1.NodeVersion"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.OwnerUsage": {
+        "description": "OwnerUsage is one row of the per-account usage breakdown.",
+        "properties": {
+          "fileCount": {
+            "type": "string"
+          },
+          "folderCount": {
+            "type": "string"
+          },
+          "ownerId": {
+            "type": "string"
+          },
+          "ownerName": {
+            "type": "string"
+          },
+          "quotaBytes": {
+            "type": "string"
+          },
+          "usedBytes": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.PermissionCatalog": {
+        "description": "PermissionCatalog is the collection of permissions for client rendering.",
+        "properties": {
+          "granted": {
+            "description": "Permission set the calling account currently holds.",
+            "items": {
+              "format": "enum",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "grantedMask": {
+            "description": "Bitmask form of granted.",
+            "type": "string"
+          },
+          "permissions": {
+            "items": {
+              "$ref": "#/components/schemas/netdisk.v1.PermissionInfo"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.PermissionInfo": {
+        "description": "PermissionInfo describes one permission for client-side rendering.",
+        "properties": {
+          "category": {
+            "description": "Grouping used by settings screens, for example \"content\" or \"system\".",
+            "type": "string"
+          },
+          "description": {
+            "description": "Human readable Chinese explanation.",
+            "type": "string"
+          },
+          "displayName": {
+            "description": "Human readable Chinese label.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Stable machine name, for example \"upload\".",
+            "type": "string"
+          },
+          "permission": {
+            "format": "enum",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.PurgeNodesReply": {
+        "description": "PurgeNodesReply reports the outcome of a purge batch.",
+        "properties": {
+          "affectedCount": {
+            "type": "string"
+          },
+          "purgedIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "reclaimedBytes": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.PurgeNodesRequest": {
+        "description": "PurgeNodesRequest is the input for NodeService.PurgeNodes.",
+        "properties": {
+          "ids": {
+            "description": "Trashed nodes to delete permanently.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.RefreshTokenRequest": {
+        "description": "RefreshTokenRequest is the input for AuthService.RefreshToken.",
+        "properties": {
+          "refreshToken": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "refreshToken"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.ResetUserPasswordRequest": {
+        "description": "ResetUserPasswordRequest is the input for UserService.ResetUserPassword.",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "mustChangePassword": {
+            "description": "Force a password change at next login.",
+            "type": "boolean"
+          },
+          "password": {
+            "description": "RSA-OAEP(SHA-256) encrypted, base64 encoded new password.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "password"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.RestoreNodeVersionRequest": {
+        "description": "RestoreNodeVersionRequest is the input for NodeService.RestoreNodeVersion.",
+        "properties": {
+          "nodeId": {
+            "type": "string"
+          },
+          "versionId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "nodeId",
+          "versionId"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.RestoreNodesRequest": {
+        "description": "RestoreNodesRequest is the input for NodeService.RestoreNodes.",
+        "properties": {
+          "conflictPolicy": {
+            "format": "enum",
+            "type": "integer"
+          },
+          "ids": {
+            "description": "Trashed nodes to restore.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "targetParentId": {
+            "description": "Destination folder override. Empty restores to original_parent_id.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ids"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.RevokeSessionRequest": {
+        "description": "RevokeSessionRequest is the input for AuthService.RevokeSession.",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.RolePreset": {
+        "description": "RolePreset is a permission template offered when creating an account.",
+        "properties": {
+          "defaultRank": {
+            "description": "Rank assigned when the creator does not override it.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "description": {
+            "type": "string"
+          },
+          "displayName": {
+            "description": "Human readable Chinese label.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Stable machine name, for example \"guest\".",
+            "type": "string"
+          },
+          "permissions": {
+            "description": "Permissions granted by the template.",
+            "items": {
+              "format": "enum",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "permissionsMask": {
+            "description": "Bitmask form of permissions.",
+            "type": "string"
+          },
+          "role": {
+            "format": "enum",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.RolePresetSet": {
+        "description": "RolePresetSet is the collection of built-in permission templates.",
+        "properties": {
+          "callerRank": {
+            "description": "Rank of the calling account.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "maxGrantableRank": {
+            "description": "Exclusive upper bound the caller may assign to rank.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "presets": {
+            "items": {
+              "$ref": "#/components/schemas/netdisk.v1.RolePreset"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.RunMaintenanceRequest": {
+        "description": "RunMaintenanceRequest is the input for SystemService.RunMaintenance.",
+        "properties": {
+          "dryRun": {
+            "description": "Report what would happen without changing anything.",
+            "type": "boolean"
+          },
+          "tasks": {
+            "description": "Tasks to run. Empty runs every task.\n Supported values: \"expire_uploads\", \"purge_deletions\", \"gc_orphans\",\n \"expire_shares\", \"recount_usage\", \"purge_trash\".",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "trashRetentionDays": {
+            "description": "Only purge trash entries older than this many days. Defaults to 30.",
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.Session": {
+        "description": "Session is one refresh token family shown to its owner.",
+        "properties": {
+          "active": {
+            "description": "Whether the session is still usable.",
+            "type": "boolean"
+          },
+          "createdAt": {
+            "description": "Time at which the session was created.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "current": {
+            "description": "Whether this is the session behind the current request.",
+            "type": "boolean"
+          },
+          "expiresAt": {
+            "description": "Time at which the session expires.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "ip": {
+            "description": "Client address that created the session.",
+            "type": "string"
+          },
+          "lastUsedAt": {
+            "description": "Time at which the session was last refreshed.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "userAgent": {
+            "description": "User agent recorded at creation time.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.SessionSet": {
+        "description": "SessionSet is a page of sessions.",
+        "properties": {
+          "nextPageToken": {
+            "type": "string"
+          },
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/netdisk.v1.Session"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.SetNodeAclRequest": {
+        "description": "SetNodeAclRequest is the input for NodeService.SetNodeAcl.",
+        "properties": {
+          "entries": {
+            "description": "Complete replacement set of entries. An empty list clears the ACL.",
+            "items": {
+              "$ref": "#/components/schemas/netdisk.v1.AclEntry"
+            },
+            "type": "array"
+          },
+          "nodeId": {
+            "type": "string"
+          },
+          "recursive": {
+            "description": "Apply the same entries to every descendant that does not override them.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "nodeId"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.SetUserPermissionsRequest": {
+        "description": "SetUserPermissionsRequest is the input for UserService.SetUserPermissions.",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "permissions": {
+            "description": "Complete replacement permission set.",
+            "items": {
+              "format": "enum",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "permissionsMask": {
+            "description": "Bitmask alternative to permissions. Used when permissions is empty and the\n mask is non-zero.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.Share": {
+        "description": "Share is one share link.",
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "createdBy": {
+            "type": "string"
+          },
+          "description": {
+            "description": "Optional note shown to visitors.",
+            "type": "string"
+          },
+          "downloadCount": {
+            "description": "Downloads served so far.",
+            "type": "string"
+          },
+          "editable": {
+            "description": "Whether the calling account may modify or revoke the share.",
+            "type": "boolean"
+          },
+          "expiresAt": {
+            "description": "Time at which the link stops working. Zero means it never expires.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "maxDownloads": {
+            "description": "Maximum number of downloads. Zero means unlimited.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Optional label shown to visitors.",
+            "type": "string"
+          },
+          "node": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/netdisk.v1.Node"
+              }
+            ],
+            "description": "Snapshot of the shared node."
+          },
+          "nodeId": {
+            "description": "Node the share points at.",
+            "type": "string"
+          },
+          "ownerId": {
+            "description": "Account that created the share.",
+            "type": "string"
+          },
+          "ownerName": {
+            "description": "Display name of the owner.",
+            "type": "string"
+          },
+          "passwordHint": {
+            "description": "Hint shown next to the password prompt.",
+            "type": "string"
+          },
+          "passwordProtected": {
+            "description": "Whether a password must be supplied through AccessShare.",
+            "type": "boolean"
+          },
+          "permissions": {
+            "description": "Capabilities conveyed by the link.",
+            "items": {
+              "format": "enum",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "permissionsMask": {
+            "description": "Bitmask form of permissions.",
+            "type": "string"
+          },
+          "status": {
+            "format": "enum",
+            "type": "integer"
+          },
+          "token": {
+            "description": "URL safe token that identifies the share. Read-only after creation.",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "url": {
+            "description": "Fully qualified share URL, built from the configured public base URL.",
+            "type": "string"
+          },
+          "viewCount": {
+            "description": "Successful accesses so far.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.ShareAccess": {
+        "description": "ShareAccess is the public view of a share after the token, and the password\n when required, have been accepted.",
+        "properties": {
+          "accessToken": {
+            "description": "Token to present as access_token on subsequent public calls. Empty for\n shares without a password.",
+            "type": "string"
+          },
+          "children": {
+            "description": "First level of children when the shared node is a folder.",
+            "items": {
+              "$ref": "#/components/schemas/netdisk.v1.Node"
+            },
+            "type": "array"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "expiresIn": {
+            "description": "Lifetime of access_token in seconds.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "nextPageToken": {
+            "type": "string"
+          },
+          "node": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/netdisk.v1.Node"
+              }
+            ],
+            "description": "The shared node."
+          },
+          "share": {
+            "$ref": "#/components/schemas/netdisk.v1.Share"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.ShareSet": {
+        "description": "ShareSet is a paginated collection of shares.",
+        "properties": {
+          "nextPageToken": {
+            "type": "string"
+          },
+          "shares": {
+            "items": {
+              "$ref": "#/components/schemas/netdisk.v1.Share"
+            },
+            "type": "array"
+          },
+          "totalSize": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.SignedUrl": {
+        "description": "SignedUrl is a time limited URL that carries its own authorisation.",
+        "properties": {
+          "expiresAt": {
+            "description": "Expiry of the URL.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "expiresIn": {
+            "description": "Lifetime in seconds.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "fileName": {
+            "description": "Suggested file name for a download.",
+            "type": "string"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Headers the client must send with the request.",
+            "type": "object"
+          },
+          "method": {
+            "description": "HTTP method the URL must be redeemed with.",
+            "type": "string"
+          },
+          "mimeType": {
+            "description": "Content type the payload will be served with.",
+            "type": "string"
+          },
+          "nodeId": {
+            "description": "Node the URL points at.",
+            "type": "string"
+          },
+          "size": {
+            "description": "Size of the payload in bytes. Zero for archives whose size is unknown in\n advance.",
+            "type": "string"
+          },
+          "url": {
+            "description": "Fully qualified URL to redeem.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.StorageStats": {
+        "description": "StorageStats aggregates storage usage.",
+        "properties": {
+          "activeShares": {
+            "type": "string"
+          },
+          "activeUsers": {
+            "type": "string"
+          },
+          "backendUsedBytes": {
+            "description": "Bytes of objects the backend reported as used, including versions and\n pending deletions.",
+            "type": "string"
+          },
+          "disabledUsers": {
+            "type": "string"
+          },
+          "sizeByCategory": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Bytes by mime type family, for example {\"image\": 1048576}.",
+            "type": "object"
+          },
+          "topOwners": {
+            "description": "Largest consumers, ordered by used_bytes descending.",
+            "items": {
+              "$ref": "#/components/schemas/netdisk.v1.OwnerUsage"
+            },
+            "type": "array"
+          },
+          "totalBytes": {
+            "type": "string"
+          },
+          "totalFiles": {
+            "type": "string"
+          },
+          "totalFolders": {
+            "type": "string"
+          },
+          "totalUsers": {
+            "type": "string"
+          },
+          "trashedBytes": {
+            "type": "string"
+          },
+          "trashedNodes": {
+            "type": "string"
+          },
+          "uploadsInProgress": {
+            "type": "string"
+          },
+          "versionsBytes": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.SystemInfo": {
+        "description": "SystemInfo advertises deployment capabilities and limits.",
+        "properties": {
+          "apiVersion": {
+            "description": "API version, currently \"v1\".",
+            "type": "string"
+          },
+          "auth": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/netdisk.v1.AuthConfig"
+              }
+            ],
+            "description": "Public authentication parameters, including the password key."
+          },
+          "databaseBackend": {
+            "description": "Database backend in use, for example \"sqlite\".",
+            "type": "string"
+          },
+          "defaultChunkSize": {
+            "description": "Part size used when a client does not request one.",
+            "type": "string"
+          },
+          "defaultVisibility": {
+            "description": "Default visibility applied to newly created nodes.",
+            "format": "enum",
+            "type": "integer"
+          },
+          "features": {
+            "description": "Feature flags, for example \"chunked_upload\", \"share_links\",\n \"node_password\", \"acl\", \"versions\", \"public_share\".",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "maxInlineSize": {
+            "description": "Largest payload accepted by UploadSmallFile.",
+            "type": "string"
+          },
+          "maxUploadSize": {
+            "description": "Maximum accepted size of a single file in bytes. Zero means unlimited.",
+            "type": "string"
+          },
+          "minChunkSize": {
+            "description": "Smallest accepted part size. Object storage requires at least 5 MiB for\n every part but the last.",
+            "type": "string"
+          },
+          "name": {
+            "description": "Service name.",
+            "type": "string"
+          },
+          "publicBaseUrl": {
+            "description": "Base URL used to build share links.",
+            "type": "string"
+          },
+          "registrationEnabled": {
+            "description": "Whether accounts may be created through the API. In this deployment only\n administrators may create accounts.",
+            "type": "boolean"
+          },
+          "serverTime": {
+            "description": "Server clock at the time of the response.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "signedUrlMaxTtlSeconds": {
+            "description": "Maximum lifetime of a signed URL in seconds.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "signedUrlTtlSeconds": {
+            "description": "Default lifetime of a signed URL in seconds.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "storageBackend": {
+            "description": "Object storage backend in use, for example \"s3\".",
+            "type": "string"
+          },
+          "uploadModes": {
+            "description": "Transports this deployment offers for part payloads.",
+            "items": {
+              "format": "enum",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "uploadSessionTtlSeconds": {
+            "description": "Lifetime of an upload session in seconds.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "version": {
+            "description": "Build version.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.SystemSetting": {
+        "description": "SystemSetting is one runtime tunable.",
+        "properties": {
+          "description": {
+            "description": "Human readable Chinese description.",
+            "type": "string"
+          },
+          "key": {
+            "description": "Stable key, for example \"guest.default_permissions\".",
+            "type": "string"
+          },
+          "type": {
+            "description": "Value type: \"string\", \"int\", \"bool\" or \"json\".",
+            "type": "string"
+          },
+          "value": {
+            "description": "Current value, serialised as a string.",
+            "type": "string"
+          },
+          "writable": {
+            "description": "Whether the key may be written through UpdateSystemSettings.",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.SystemSettingSet": {
+        "description": "SystemSettingSet is a collection of runtime tunables.",
+        "properties": {
+          "settings": {
+            "items": {
+              "$ref": "#/components/schemas/netdisk.v1.SystemSetting"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.UnlockNodeRequest": {
+        "description": "UnlockNodeRequest is the input for NodeService.UnlockNode.",
+        "properties": {
+          "nodeId": {
+            "type": "string"
+          },
+          "password": {
+            "description": "RSA-OAEP(SHA-256) encrypted, base64 encoded folder password.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "nodeId",
+          "password"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.UpdateNodeRequest": {
+        "description": "UpdateNodeRequest is the input for NodeService.UpdateNode.",
+        "properties": {
+          "conflictPolicy": {
+            "description": "Behaviour when renaming onto an existing sibling name. Defaults to FAIL.",
+            "format": "enum",
+            "type": "integer"
+          },
+          "node": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/netdisk.v1.Node"
+              }
+            ],
+            "description": "Node carrying the new values. node.id identifies the target."
+          },
+          "password": {
+            "description": "RSA-OAEP(SHA-256) encrypted, base64 encoded new password. Setting it\n requires the `password` path in update_mask.",
+            "type": "string"
+          },
+          "removePassword": {
+            "description": "Remove the folder password. Takes effect when `password` is listed in\n update_mask.",
+            "type": "boolean"
+          },
+          "updateMask": {
+            "description": "Field paths to overwrite. Supported paths: `name`, `description`,\n `visibility`, `metadata`, `parent_id`.",
+            "format": "field-mask",
+            "type": "string"
+          }
+        },
+        "required": [
+          "node",
+          "updateMask"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.UpdateShareRequest": {
+        "description": "UpdateShareRequest is the input for ShareService.UpdateShare.",
+        "properties": {
+          "password": {
+            "description": "RSA-OAEP(SHA-256) encrypted, base64 encoded new password. Applied when\n `password` is listed in update_mask.",
+            "type": "string"
+          },
+          "removePassword": {
+            "description": "Clear the password. Applied when `password` is listed in update_mask and\n this flag is set.",
+            "type": "boolean"
+          },
+          "share": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/netdisk.v1.Share"
+              }
+            ],
+            "description": "Share carrying the new values. share.id identifies the target."
+          },
+          "updateMask": {
+            "description": "Field paths to overwrite. Supported paths: `name`, `description`,\n `permissions_mask`, `password`, `password_hint`, `expires_at`,\n `max_downloads`, `status`.",
+            "format": "field-mask",
+            "type": "string"
+          }
+        },
+        "required": [
+          "share",
+          "updateMask"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.UpdateSystemSettingsRequest": {
+        "description": "UpdateSystemSettingsRequest is the input for\n SystemService.UpdateSystemSettings.",
+        "properties": {
+          "settings": {
+            "description": "Settings to write. Only writable keys are accepted.",
+            "items": {
+              "$ref": "#/components/schemas/netdisk.v1.SystemSetting"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.UpdateUserRequest": {
+        "description": "UpdateUserRequest is the input for UserService.UpdateUser.",
+        "properties": {
+          "updateMask": {
+            "description": "Field paths to overwrite. Supported paths: `nickname`, `email`,\n `avatar_url`, `remark`, `role`, `rank`, `permissions_mask`, `status`,\n `quota_bytes`.",
+            "format": "field-mask",
+            "type": "string"
+          },
+          "user": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/netdisk.v1.User"
+              }
+            ],
+            "description": "Account carrying the new values. user.id identifies the target."
+          }
+        },
+        "required": [
+          "user",
+          "updateMask"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.UploadChunkRequest": {
+        "description": "UploadChunkRequest is the input for FileService.UploadChunk.",
+        "properties": {
+          "content": {
+            "description": "Part payload. Over JSON this field is a base64 string; the raw streaming\n binding sends the same bytes as an application/octet-stream body.",
+            "format": "bytes",
+            "type": "string"
+          },
+          "etag": {
+            "description": "Optional. Digest the client computed for the part.",
+            "type": "string"
+          },
+          "partNumber": {
+            "description": "One-based part number.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "uploadId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "uploadId",
+          "partNumber"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.UploadPart": {
+        "description": "UploadPart is one stored part of a multipart upload.",
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "etag": {
+            "description": "Digest reported by the storage backend, used to assemble the object.",
+            "type": "string"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Headers the client must send with upload_url.",
+            "type": "object"
+          },
+          "partNumber": {
+            "description": "One-based part number.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "size": {
+            "type": "string"
+          },
+          "uploadUrl": {
+            "description": "Presigned URL to PUT this part directly to object storage. Only populated\n for UPLOAD_MODE_PRESIGNED.",
+            "type": "string"
+          },
+          "urlExpiresAt": {
+            "description": "Expiry of upload_url.",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.UploadPartSet": {
+        "description": "UploadPartSet is a collection of stored parts.",
+        "properties": {
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/netdisk.v1.UploadPart"
+            },
+            "type": "array"
+          },
+          "uploadId": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.UploadSession": {
+        "description": "UploadSession is one multipart upload.",
+        "properties": {
+          "chunkSize": {
+            "description": "Size of every part except the last, in bytes.",
+            "type": "string"
+          },
+          "conflictPolicy": {
+            "description": "Behaviour applied when the destination name is taken.",
+            "format": "enum",
+            "type": "integer"
+          },
+          "createdAt": {
+            "description": "Time at which the session was created. Read-only.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "expiresAt": {
+            "description": "Time at which the session stops accepting parts. Read-only.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "description": "Always NODE_KIND_FILE for an upload session.",
+            "format": "enum",
+            "type": "integer"
+          },
+          "lastError": {
+            "description": "Last error recorded by the server, for diagnostics.",
+            "type": "string"
+          },
+          "mimeType": {
+            "type": "string"
+          },
+          "mode": {
+            "description": "Transport selected for part payloads.",
+            "format": "enum",
+            "type": "integer"
+          },
+          "name": {
+            "description": "Destination file name.",
+            "type": "string"
+          },
+          "nodeId": {
+            "description": "Node created on success. Empty until CompleteUpload returns.",
+            "type": "string"
+          },
+          "parentId": {
+            "description": "Destination folder.",
+            "type": "string"
+          },
+          "parts": {
+            "description": "Parts already stored, with their presigned URLs when mode is\n UPLOAD_MODE_PRESIGNED.",
+            "items": {
+              "$ref": "#/components/schemas/netdisk.v1.UploadPart"
+            },
+            "type": "array"
+          },
+          "receivedBytes": {
+            "description": "Bytes received so far.",
+            "type": "string"
+          },
+          "size": {
+            "description": "Declared total size in bytes.",
+            "type": "string"
+          },
+          "status": {
+            "format": "enum",
+            "type": "integer"
+          },
+          "totalParts": {
+            "description": "Number of parts the declared size implies.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "updatedAt": {
+            "description": "Time at which the session was last updated. Read-only.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "uploadedParts": {
+            "description": "One-based numbers of the parts already stored.",
+            "items": {
+              "format": "int32",
+              "type": "integer"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.UploadSessionSet": {
+        "description": "UploadSessionSet is a paginated collection of upload sessions.",
+        "properties": {
+          "nextPageToken": {
+            "type": "string"
+          },
+          "totalSize": {
+            "type": "string"
+          },
+          "uploads": {
+            "items": {
+              "$ref": "#/components/schemas/netdisk.v1.UploadSession"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.UploadSmallFileRequest": {
+        "description": "UploadSmallFileRequest is the input for FileService.UploadSmallFile.",
+        "properties": {
+          "conflictPolicy": {
+            "format": "enum",
+            "type": "integer"
+          },
+          "content": {
+            "description": "Payload. Over JSON this field is a base64 string.",
+            "format": "bytes",
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "mimeType": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "parentId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "content"
+        ],
+        "type": "object"
+      },
+      "netdisk.v1.User": {
+        "description": "User is the canonical representation of an account.",
+        "properties": {
+          "avatarUrl": {
+            "description": "Avatar URL. Optional.",
+            "type": "string"
+          },
+          "createdAt": {
+            "description": "Time at which the account was created. Read-only.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "createdBy": {
+            "description": "Account that created this one. Read-only.",
+            "type": "string"
+          },
+          "email": {
+            "description": "Contact address. Optional.",
+            "type": "string"
+          },
+          "fileCount": {
+            "description": "Number of live files owned by the account.",
+            "type": "string"
+          },
+          "folderCount": {
+            "description": "Number of live folders owned by the account.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Application-generated UUIDv7 identifier. Read-only.",
+            "type": "string"
+          },
+          "lastLoginAt": {
+            "description": "Time of the last successful login. Read-only.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "manageable": {
+            "description": "Whether the calling account may manage this account. Computed per caller.",
+            "type": "boolean"
+          },
+          "maxGrantableRank": {
+            "description": "Inclusive upper bound the caller may assign to rank for a new account.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "mustChangePassword": {
+            "description": "Whether the account must change its password at the next login.",
+            "type": "boolean"
+          },
+          "nickname": {
+            "description": "Display name.",
+            "type": "string"
+          },
+          "permissions": {
+            "description": "Granted permissions.",
+            "items": {
+              "format": "enum",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "permissionsEditable": {
+            "description": "Whether the calling account may change this account's permission set.",
+            "type": "boolean"
+          },
+          "permissionsMask": {
+            "description": "Bitmask form of permissions.",
+            "type": "string"
+          },
+          "quotaBytes": {
+            "description": "Storage quota in bytes. Zero means unlimited.",
+            "type": "string"
+          },
+          "rank": {
+            "description": "Authority level. A caller may only manage accounts with a strictly lower\n rank. ROLE_ADMIN is pinned at 1000.",
+            "format": "int32",
+            "type": "integer"
+          },
+          "remark": {
+            "description": "Free-form administrator note.",
+            "type": "string"
+          },
+          "role": {
+            "description": "Coarse account category.",
+            "format": "enum",
+            "type": "integer"
+          },
+          "status": {
+            "description": "Account lifecycle state.",
+            "format": "enum",
+            "type": "integer"
+          },
+          "updatedAt": {
+            "description": "Time at which the account was last modified. Read-only.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "usedBytes": {
+            "description": "Storage currently consumed in bytes.",
+            "type": "string"
+          },
+          "username": {
+            "description": "Login name. Unique among accounts. Immutable after creation.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.UserSet": {
+        "description": "UserSet is a paginated collection of accounts.",
+        "properties": {
+          "nextPageToken": {
+            "type": "string"
+          },
+          "totalSize": {
+            "description": "Total number of accounts matching the filter, ignoring pagination.",
+            "type": "string"
+          },
+          "users": {
+            "items": {
+              "$ref": "#/components/schemas/netdisk.v1.User"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "netdisk.v1.UserStats": {
+        "description": "UserStats summarises one account's storage usage.",
+        "properties": {
+          "fileCount": {
+            "type": "string"
+          },
+          "folderCount": {
+            "type": "string"
+          },
+          "quotaBytes": {
+            "type": "string"
+          },
+          "trashedBytes": {
+            "type": "string"
+          },
+          "trashedCount": {
+            "type": "string"
+          },
+          "usageRatio": {
+            "description": "Quota usage ratio in the range [0, 1]. Zero when the quota is unlimited.",
+            "format": "double",
+            "type": "number"
+          },
+          "usedBytes": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string"
+          },
+          "username": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "bearerFormat": "JWT",
+        "description": "访问令牌。先调用 AuthService.Login 取得 accessToken，再以 `Authorization: Bearer \u003ctoken\u003e` 发送。",
+        "scheme": "bearer",
+        "type": "http"
+      },
+      "nodeToken": {
+        "description": "文件夹解锁令牌，由 NodeService.UnlockNode 返回。访问受密码保护的文件夹及其子节点时必须携带。",
+        "in": "header",
+        "name": "X-Node-Token",
+        "type": "apiKey"
+      },
+      "requestId": {
+        "description": "可选。调用方自带的链路标识，会写入审计日志并原样回显。",
+        "in": "header",
+        "name": "X-Request-Id",
+        "type": "apiKey"
+      },
+      "shareToken": {
+        "description": "分享访问令牌，由 ShareService.AccessShare 返回，用于访问设有密码的分享链接。",
+        "in": "header",
+        "name": "X-Share-Token",
+        "type": "apiKey"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "name": "Nagisa Netdisk"
+    },
+    "description": "Nagisa 网盘后端 HTTP API。\n\n## 认证\n除下文列出的公开接口外，所有接口都需要在请求头携带 `Authorization: Bearer \u003caccessToken\u003e`。\n访问令牌由 `POST /v1/auth/login` 签发；调用前请先用 `GET /v1/auth/config` 取得 RSA 公钥，\n把密码用 RSA-OAEP(SHA-256) 加密后 base64 编码再发送，服务端不会接受明文密码。\n受密码保护的文件夹需要额外的 `X-Node-Token` 请求头，由 `POST /v1/nodes/{node_id}/unlock` 签发。\n\n公开接口：`AuthService.GetAuthConfig`、`AuthService.Login`、`AuthService.RefreshToken`、`ShareService.AccessShare`、`ShareService.ListShareChildren`、`ShareService.GetShareDownloadUrl`、`SystemService.GetSystemInfo`、`SystemService.HealthCheck`。\n\n## 数据传输格式\n请求与响应使用 protobuf 的规范 JSON 映射：\n枚举使用名称（如 `\"PERMISSION_UPLOAD\"`），64 位整数使用字符串（如 `\"size\": \"1048576\"`），\n`bytes` 字段使用 base64，`google.protobuf.Timestamp` 使用 RFC 3339 字符串，\n`google.protobuf.FieldMask` 使用逗号分隔的 camelCase 路径字符串（如 `\"description,visibility\"`）。\n字段名同时接受 camelCase（文档中的写法）与原始下划线写法，便于调用方平滑迁移。\n\n## 错误\n失败响应统一为 `{\"code\":401,\"reason\":\"NETDISK_UNAUTHENTICATED\",\"message\":\"...\"}`。\n`reason` 取自 `ErrorReason` 枚举，调用方应当按它分支，而不是解析 `message`。\n\n## 授权模型\n账号等级（`rank`）构成严格的全序：默认管理员 1000、管理员 500、普通用户 100、访客 10。\n调用方只能管理等级严格低于自己的账号，并且只能授予自己拥有的权限。\n节点访问按「账号权限上限 → 属主通行 → 显式拒绝 → 显式允许（含继承）→ 可见范围 → 文件夹密码」的顺序判定，\n详见 `docs/permissions.md`。\n\n## 原始字节绑定\n`GET /v1/files/{node_id}/content`、`GET /v1/files/{node_id}/archive`、`PUT /v1/files/uploads/{upload_id}/parts/{part_number}/raw` 直接收发二进制内容，\n授权由 URL 签名或访问令牌承担，详见各接口说明。\n",
+    "license": {
+      "name": "MIT"
+    },
+    "title": "Nagisa 网盘 API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/v1/audit/logs/list": {
+      "get": {
+        "description": "ListAuditLogs returns a page of audit entries, newest first by default.",
+        "operationId": "AuditService_ListAuditLogs",
+        "parameters": [
+          {
+            "description": "Optional. Maximum number of entries to return. Defaults to 20, capped at\n 500.",
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageToken",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. The standard list filter.\n Supported fields:\n    * `actor_id`\n    * `actor_name`\n    * `action` (i.e. `action:\"node.\"` for a prefix match)\n    * `target_type`\n    * `target_id`\n    * `success` (i.e. `success` for successful calls, `NOT success` for\n      failed ones; `success=true` and `success=false` are also accepted)\n    * `ip`\n    * `created_at` range",
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. Comma-separated ordering fields, in the AIP syntax where a\n descending field is written with a `desc` suffix (`order_by=created_at desc`).\n Supported fields: `created_at`, `action`, `actor_name`.",
+            "in": "query",
+            "name": "orderBy",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.AuditLogSet"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "AuditService"
+        ]
+      }
+    },
+    "/v1/audit/logs/{id}": {
+      "get": {
+        "description": "GetAuditLog returns a single audit entry by id.",
+        "operationId": "AuditService_GetAuditLog",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.AuditLog"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "AuditService"
+        ]
+      }
+    },
+    "/v1/audit/summary": {
+      "get": {
+        "description": "GetAuditSummary aggregates the trail by action, actor and day.",
+        "operationId": "AuditService_GetAuditSummary",
+        "parameters": [
+          {
+            "description": "Optional. Start of the window. Defaults to 7 days before to.",
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. End of the window. Defaults to now.",
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. Restrict the aggregation to one action prefix.",
+            "in": "query",
+            "name": "actionPrefix",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.AuditSummary"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "AuditService"
+        ]
+      }
+    },
+    "/v1/auth/config": {
+      "get": {
+        "description": "GetAuthConfig returns the parameters the client needs before it can log\n in, including the RSA public key used to encode passwords. This endpoint\n is public.\n\n本接口为公开接口，无需访问令牌。",
+        "operationId": "AuthService_GetAuthConfig",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.AuthConfig"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "security": [],
+        "tags": [
+          "AuthService"
+        ]
+      }
+    },
+    "/v1/auth/guest": {
+      "post": {
+        "description": "GuestLogin opens a read-only session for the built-in guest account\n without a password, so a client can show what guests may read straight\n away. The account's permission set is fixed and cannot be changed by\n anybody, and the reply carries an access token only: there is nothing to\n refresh, a client simply asks again when the token expires.\n Returns UNSUPPORTED when the deployment does not enable guest login.\n\n本接口为公开接口，无需访问令牌。",
+        "operationId": "AuthService_GuestLogin",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.GuestLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.LoginReply"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "security": [],
+        "tags": [
+          "AuthService"
+        ]
+      }
+    },
+    "/v1/auth/login": {
+      "post": {
+        "description": "Login exchanges an account name and an encoded password for an access\n token and a refresh token.\n Returns UNAUTHENTICATED when the account does not exist or the password\n does not match, and PERMISSION_DENIED when the account is disabled.\n\n本接口为公开接口，无需访问令牌。",
+        "operationId": "AuthService_Login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.LoginReply"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "security": [],
+        "tags": [
+          "AuthService"
+        ]
+      }
+    },
+    "/v1/auth/logout": {
+      "post": {
+        "description": "Logout revokes the supplied refresh token and, when revoke_all is set,\n every refresh token of the account.",
+        "operationId": "AuthService_Logout",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.LogoutRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {},
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "AuthService"
+        ]
+      }
+    },
+    "/v1/auth/me": {
+      "get": {
+        "description": "GetCurrentUser returns the account behind the presented access token.",
+        "operationId": "AuthService_GetCurrentUser",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.User"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "AuthService"
+        ]
+      }
+    },
+    "/v1/auth/password/change": {
+      "post": {
+        "description": "ChangePassword replaces the caller's own password. The current password\n must be supplied and encoded the same way as on login. Every other refresh\n token of the account is revoked on success.",
+        "operationId": "AuthService_ChangePassword",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.ChangePasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {},
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "AuthService"
+        ]
+      }
+    },
+    "/v1/auth/refresh": {
+      "post": {
+        "description": "RefreshToken rotates a refresh token into a fresh token pair. The\n presented refresh token is revoked on success.\n Returns UNAUTHENTICATED when the token is unknown, revoked or expired.\n\n本接口为公开接口，无需访问令牌。",
+        "operationId": "AuthService_RefreshToken",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.RefreshTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.LoginReply"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "security": [],
+        "tags": [
+          "AuthService"
+        ]
+      }
+    },
+    "/v1/auth/sessions/list": {
+      "get": {
+        "description": "ListSessions returns the caller's active refresh sessions.",
+        "operationId": "AuthService_ListSessions",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageToken",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Include sessions that are expired or revoked.",
+            "in": "query",
+            "name": "includeInactive",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.SessionSet"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "AuthService"
+        ]
+      }
+    },
+    "/v1/auth/sessions/revoke": {
+      "post": {
+        "description": "RevokeSession revokes one of the caller's own sessions by id.",
+        "operationId": "AuthService_RevokeSession",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.RevokeSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {},
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "AuthService"
+        ]
+      }
+    },
+    "/v1/files/upload": {
+      "post": {
+        "description": "UploadSmallFile stores a payload carried inside the request. Intended for\n files at or below the max_inline_size advertised by SystemService, which\n defaults to 4 MiB.",
+        "operationId": "FileService_UploadSmallFile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.UploadSmallFileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.Node"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "FileService"
+        ]
+      }
+    },
+    "/v1/files/uploads/abort": {
+      "post": {
+        "description": "AbortUpload cancels a session and reclaims every staged part.",
+        "operationId": "FileService_AbortUpload",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.AbortUploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {},
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "FileService"
+        ]
+      }
+    },
+    "/v1/files/uploads/complete": {
+      "post": {
+        "description": "CompleteUpload verifies every declared part, assembles the object and\n commits the node in one transaction.\n Returns UPLOAD_INCOMPLETE when parts are missing or their sizes do not add\n up, PRECONDITION_FAILED when the checksum does not match, and\n NAME_CONFLICT when the destination name was taken meanwhile.",
+        "operationId": "FileService_CompleteUpload",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.CompleteUploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.Node"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "FileService"
+        ]
+      }
+    },
+    "/v1/files/uploads/create": {
+      "post": {
+        "description": "InitiateUpload opens a multipart upload session. When a session with the\n same parent, name and owner is still pending it is returned instead of a\n new one, which makes retries and resumes idempotent.",
+        "operationId": "FileService_InitiateUpload",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.InitiateUploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.UploadSession"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "FileService"
+        ]
+      }
+    },
+    "/v1/files/uploads/list": {
+      "get": {
+        "description": "ListUploads returns the caller's upload sessions.",
+        "operationId": "FileService_ListUploads",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageToken",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. Restrict to one status.",
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "format": "enum",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Optional. Restrict to a destination folder.",
+            "in": "query",
+            "name": "parentId",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.UploadSessionSet"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "FileService"
+        ]
+      }
+    },
+    "/v1/files/uploads/parts/confirm": {
+      "post": {
+        "description": "ConfirmUploadPart records the etag produced by a direct-to-storage part\n upload. Only meaningful in UPLOAD_MODE_PRESIGNED.",
+        "operationId": "FileService_ConfirmUploadPart",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.ConfirmUploadPartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.UploadPart"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "FileService"
+        ]
+      }
+    },
+    "/v1/files/uploads/{id}": {
+      "get": {
+        "description": "GetUpload returns one upload session, including the parts already stored.",
+        "operationId": "FileService_GetUpload",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.UploadSession"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "FileService"
+        ]
+      }
+    },
+    "/v1/files/uploads/{uploadId}/parts": {
+      "get": {
+        "description": "ListUploadParts returns the parts of a session, which lets a client resume\n without re-sending completed parts.",
+        "operationId": "FileService_ListUploadParts",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "uploadId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. Only return parts with a number greater than this value, which\n keeps a resume handshake small.",
+            "in": "query",
+            "name": "fromPartNumber",
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.UploadPartSet"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "FileService"
+        ]
+      }
+    },
+    "/v1/files/uploads/{uploadId}/parts/{partNumber}": {
+      "put": {
+        "description": "UploadChunk streams one part through the server. part_number is one-based\n and must not exceed UploadSession.total_parts. Content type is inferred\n from the parent session.",
+        "operationId": "FileService_UploadChunk",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "uploadId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "One-based part number.",
+            "in": "path",
+            "name": "partNumber",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.UploadChunkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.UploadPart"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "FileService"
+        ]
+      }
+    },
+    "/v1/files/uploads/{upload_id}/parts/{part_number}/raw": {
+      "put": {
+        "description": "与 `FileService.UploadChunk` 等价，但请求体是原始字节而不是 base64 字符串，浏览器可以直接把文件切片 PUT 上来，省去约三分之一的传输开销。\n\n必须携带访问令牌，且只能是上传会话的拥有者或持有 storage_manage 权限的账号。Content-Length 必须与分片实际长度一致。",
+        "operationId": "FileService_UploadChunkRaw",
+        "parameters": [
+          {
+            "description": "上传会话 ID",
+            "in": "path",
+            "name": "upload_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "分片序号，从 1 开始",
+            "in": "path",
+            "name": "part_number",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "format": "binary",
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.UploadPart"
+                }
+              }
+            },
+            "description": "分片已记录"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "summary": "以原始字节上传分片",
+        "tags": [
+          "FileService"
+        ]
+      }
+    },
+    "/v1/files/{nodeId}/archive-url": {
+      "get": {
+        "description": "GetArchiveUrl returns a signed URL that streams a folder, or a file, as a\n zip archive. Large folders are streamed on the fly rather than materialised.",
+        "operationId": "FileService_GetArchiveUrl",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "nodeId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expiresInSeconds",
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Name of the produced archive without the extension.",
+            "in": "query",
+            "name": "archiveName",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.SignedUrl"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "FileService"
+        ]
+      }
+    },
+    "/v1/files/{nodeId}/download-url": {
+      "get": {
+        "description": "GetDownloadUrl returns a signed URL for the original bytes of a file\n node. In a presigned deployment the URL points at object storage, so the\n download never traverses this server. The URL encodes the node id, the\n caller, the expiry and the disposition, and is validated again when it is\n redeemed.",
+        "operationId": "FileService_GetDownloadUrl",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "nodeId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Requested lifetime in seconds. Clamped to the configured maximum.",
+            "in": "query",
+            "name": "expiresInSeconds",
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Serve inline instead of as an attachment.",
+            "in": "query",
+            "name": "inline",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Override the file name offered to the client.",
+            "in": "query",
+            "name": "fileName",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.SignedUrl"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "FileService"
+        ]
+      }
+    },
+    "/v1/files/{nodeId}/preview-url": {
+      "get": {
+        "description": "GetPreviewUrl returns a signed URL for an inline preview or a thumbnail.\n Returns UNSUPPORTED when no preview can be produced for the mime type.",
+        "operationId": "FileService_GetPreviewUrl",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "nodeId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expiresInSeconds",
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Return the thumbnail instead of the full preview.",
+            "in": "query",
+            "name": "thumbnail",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.SignedUrl"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "FileService"
+        ]
+      }
+    },
+    "/v1/files/{node_id}/archive": {
+      "get": {
+        "description": "把文件夹整棵子树实时压缩为 zip 流式返回，不会在服务端产生临时对象；对单个文件节点则返回只含该文件的压缩包。\n\n签名由 `GetArchiveUrl` 签发，规则与内容下载一致，`extra` 为压缩包名称。",
+        "operationId": "FileService_DownloadArchive",
+        "parameters": [
+          {
+            "description": "文件或文件夹节点 ID",
+            "in": "path",
+            "name": "node_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "签名过期时间（Unix 秒）",
+            "in": "query",
+            "name": "exp",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "签名值",
+            "in": "query",
+            "name": "sig",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "签名对应的账号 ID",
+            "in": "query",
+            "name": "sub",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "压缩包名称（不含扩展名）",
+            "in": "query",
+            "name": "extra",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "zip 压缩包"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "security": [],
+        "summary": "打包下载文件夹（原始字节绑定）",
+        "tags": [
+          "FileService"
+        ]
+      }
+    },
+    "/v1/files/{node_id}/content": {
+      "get": {
+        "description": "按 `GetDownloadUrl` 返回的签名地址下载原文件。支持 `Range` 请求头，因此可以断点续传；响应会带上 `Content-Disposition`、`ETag` 与 `Accept-Ranges`。\n\n授权完全由 URL 签名承担：`exp` 为过期时间戳，`sig` 为 HMAC 签名，`sub` 为发起者账号，`extra` 为 `inline` 或 `attachment`。签名绑定方法、路径、节点与过期时间，无法挪用到其它资源。",
+        "operationId": "FileService_DownloadContent",
+        "parameters": [
+          {
+            "description": "文件节点 ID",
+            "in": "path",
+            "name": "node_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "签名过期时间（Unix 秒）",
+            "in": "query",
+            "name": "exp",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "签名值",
+            "in": "query",
+            "name": "sig",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "签名对应的账号 ID",
+            "in": "query",
+            "name": "sub",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "`inline` 表示内联展示，`attachment` 表示下载",
+            "in": "query",
+            "name": "extra",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "字节范围，例如 `bytes=0-1048575`",
+            "in": "header",
+            "name": "Range",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "文件内容"
+          },
+          "206": {
+            "description": "部分内容，与 `Range` 请求对应"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "security": [],
+        "summary": "流式下载原文件（原始字节绑定）",
+        "tags": [
+          "FileService"
+        ]
+      }
+    },
+    "/v1/nodes/copy": {
+      "post": {
+        "description": "CopyNodes copies nodes, including folder subtrees, into another folder.",
+        "operationId": "NodeService_CopyNodes",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.CopyNodesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.NodeSet"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "NodeService"
+        ]
+      }
+    },
+    "/v1/nodes/delete": {
+      "post": {
+        "description": "DeleteNodes moves nodes to the trash. The rows and the stored objects are\n retained until PurgeNodes or EmptyTrash.",
+        "operationId": "NodeService_DeleteNodes",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.DeleteNodesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.DeleteNodesReply"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "NodeService"
+        ]
+      }
+    },
+    "/v1/nodes/folders/create": {
+      "post": {
+        "description": "CreateFolder creates a folder. The folder may carry a description, a\n visibility, a password and, through SetNodeAcl, an allow/deny list.",
+        "operationId": "NodeService_CreateFolder",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.CreateFolderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.Node"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "NodeService"
+        ]
+      }
+    },
+    "/v1/nodes/list": {
+      "get": {
+        "description": "ListNodes returns the children of a folder, or the root listing when\n parent_id is empty. Set recursive to walk the whole subtree.",
+        "operationId": "NodeService_ListNodes",
+        "parameters": [
+          {
+            "description": "Folder to list. Empty lists the root level.",
+            "in": "query",
+            "name": "parentId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. Maximum number of nodes to return. Defaults to 20, capped at\n 1000.",
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Optional. Token from a previous response's next_page_token.",
+            "in": "query",
+            "name": "pageToken",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. The standard list filter.\n Supported fields:\n    * `name` (i.e. `name:\"report\"`)\n    * `kind` (i.e. `kind=2`)\n    * `mime_type` (i.e. `mime_type:\"image/\"` prefix match with `:`)\n    * `extension`\n    * `size` (i.e. `size\u003e1048576`)\n    * `owner_id`\n    * `status` (i.e. `status=1`)\n    * `created_at` and `updated_at` ranges",
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. Comma-separated ordering fields, in the AIP syntax where a\n descending field is written with a `desc` suffix (`order_by=size desc,name`).\n Folders are always listed before files.\n Supported fields: `name`, `size`, `kind`, `mime_type`, `extension`,\n `created_at`, `updated_at`.",
+            "in": "query",
+            "name": "orderBy",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Walk the whole subtree instead of a single level.",
+            "in": "query",
+            "name": "recursive",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Maximum depth to descend when recursive is set. Zero means unlimited.",
+            "in": "query",
+            "name": "maxDepth",
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Include trashed children. Requires PERMISSION_TRASH_MANAGE.",
+            "in": "query",
+            "name": "includeTrashed",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.NodeSet"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "NodeService"
+        ]
+      }
+    },
+    "/v1/nodes/move": {
+      "post": {
+        "description": "MoveNodes moves nodes to another folder in one transaction. The operation\n is all-or-nothing: a single rejected node rolls the whole batch back.",
+        "operationId": "NodeService_MoveNodes",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.MoveNodesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.NodeSet"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "NodeService"
+        ]
+      }
+    },
+    "/v1/nodes/search": {
+      "get": {
+        "description": "SearchNodes performs a tree-wide search over names and descriptions.",
+        "operationId": "NodeService_SearchNodes",
+        "parameters": [
+          {
+            "description": "Substring matched against the name, case-insensitively. Empty matches\n everything.",
+            "in": "query",
+            "name": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. Restrict the search to a subtree. Empty searches the whole tree\n visible to the caller.",
+            "in": "query",
+            "name": "scopeNodeId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. Restrict to a node kind.",
+            "in": "query",
+            "name": "kind",
+            "schema": {
+              "format": "enum",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Optional. Restrict to a mime type prefix, for example \"image/\".",
+            "in": "query",
+            "name": "mimeType",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. Restrict to an owner account id.",
+            "in": "query",
+            "name": "ownerId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. Minimum size in bytes, inclusive.",
+            "in": "query",
+            "name": "minSize",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. Maximum size in bytes, inclusive. Zero means unlimited.",
+            "in": "query",
+            "name": "maxSize",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. Only return nodes modified at or after this time.",
+            "in": "query",
+            "name": "updatedAfter",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. Only return nodes modified at or before this time.",
+            "in": "query",
+            "name": "updatedBefore",
+            "schema": {
+              "format": "date-time",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Match the query against the description instead of the name.",
+            "in": "query",
+            "name": "matchDescription",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Optional. Maximum number of nodes to return. Defaults to 20, capped at\n 1000.",
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Optional. Token from a previous response's next_page_token.",
+            "in": "query",
+            "name": "pageToken",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. Comma-separated ordering fields, in the AIP syntax where a\n descending field is written with a `desc` suffix (`order_by=updated_at desc`).\n Supported fields: `name`, `size`, `updated_at`, `created_at`, `relevance`.",
+            "in": "query",
+            "name": "orderBy",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.NodeSet"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "NodeService"
+        ]
+      }
+    },
+    "/v1/nodes/trash/empty": {
+      "post": {
+        "description": "EmptyTrash purges every trashed node visible to the caller.",
+        "operationId": "NodeService_EmptyTrash",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.EmptyTrashRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.PurgeNodesReply"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "NodeService"
+        ]
+      }
+    },
+    "/v1/nodes/trash/list": {
+      "get": {
+        "description": "ListTrash returns the trashed nodes visible to the caller.",
+        "operationId": "NodeService_ListTrash",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageToken",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. The standard list filter, same syntax as\n ListNodesRequest.filter plus `trashed_at` ranges.",
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. Comma-separated ordering fields. Supported fields: `name`,\n `size`, `trashed_at`, `updated_at`.",
+            "in": "query",
+            "name": "orderBy",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. Restrict the listing to nodes trashed from this folder.",
+            "in": "query",
+            "name": "originalParentId",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.NodeSet"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "NodeService"
+        ]
+      }
+    },
+    "/v1/nodes/trash/purge": {
+      "post": {
+        "description": "PurgeNodes permanently deletes nodes and their stored objects. Requires\n PERMISSION_TRASH_MANAGE.",
+        "operationId": "NodeService_PurgeNodes",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.PurgeNodesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.PurgeNodesReply"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "NodeService"
+        ]
+      }
+    },
+    "/v1/nodes/trash/restore": {
+      "post": {
+        "description": "RestoreNodes restores nodes from the trash.",
+        "operationId": "NodeService_RestoreNodes",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.RestoreNodesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.NodeSet"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "NodeService"
+        ]
+      }
+    },
+    "/v1/nodes/tree": {
+      "get": {
+        "description": "GetNodeTree returns a folder subtree expanded to the requested depth in a\n single round trip.",
+        "operationId": "NodeService_GetNodeTree",
+        "parameters": [
+          {
+            "description": "Folder to expand. Empty expands the caller's root level.",
+            "in": "query",
+            "name": "rootId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Maximum depth to descend. Defaults to 1.",
+            "in": "query",
+            "name": "depth",
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Maximum number of children returned per folder. Defaults to 200.",
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Optional. The standard list filter, applied at every level. Same syntax as\n ListNodesRequest.filter.",
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.NodeTree"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "NodeService"
+        ]
+      }
+    },
+    "/v1/nodes/update": {
+      "put": {
+        "description": "UpdateNode applies a partial update to a node. Supported paths: `name`,\n `description`, `visibility`, `metadata`, `password`, `remove_password`,\n `parent_id`. Renaming or moving requires PERMISSION_EDIT on the node.",
+        "operationId": "NodeService_UpdateNode",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.UpdateNodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.Node"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "NodeService"
+        ]
+      }
+    },
+    "/v1/nodes/versions/restore": {
+      "post": {
+        "description": "RestoreNodeVersion promotes an older version to be the current content.",
+        "operationId": "NodeService_RestoreNodeVersion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.RestoreNodeVersionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.Node"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "NodeService"
+        ]
+      }
+    },
+    "/v1/nodes/{id}": {
+      "get": {
+        "description": "GetNode returns a single node by id.",
+        "operationId": "NodeService_GetNode",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.Node"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "NodeService"
+        ]
+      }
+    },
+    "/v1/nodes/{id}/acl": {
+      "get": {
+        "description": "GetNodeAcl returns the ACL entries attached to a node together with the\n entries inherited from ancestors and the caller's effective permissions.",
+        "operationId": "NodeService_GetNodeAcl",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.NodeAcl"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "NodeService"
+        ]
+      }
+    },
+    "/v1/nodes/{id}/path": {
+      "get": {
+        "description": "GetNodePath returns the breadcrumb from the root to the node.",
+        "operationId": "NodeService_GetNodePath",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.NodePath"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "NodeService"
+        ]
+      }
+    },
+    "/v1/nodes/{id}/stats": {
+      "get": {
+        "description": "GetNodeStats returns aggregate counters for the node subtree.",
+        "operationId": "NodeService_GetNodeStats",
+        "parameters": [
+          {
+            "description": "Node to summarise. Empty summarises the caller's whole tree.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.NodeStats"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "NodeService"
+        ]
+      }
+    },
+    "/v1/nodes/{nodeId}/acl": {
+      "post": {
+        "description": "SetNodeAcl replaces the complete ACL of a node. Requires\n PERMISSION_ACL_MANAGE on the node.",
+        "operationId": "NodeService_SetNodeAcl",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "nodeId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.SetNodeAclRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.NodeAcl"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "NodeService"
+        ]
+      }
+    },
+    "/v1/nodes/{nodeId}/unlock": {
+      "post": {
+        "description": "UnlockNode exchanges a folder password for a short-lived node token that\n the client sends in the X-Node-Token header to reach the folder and its\n descendants. The password must be RSA-OAEP(SHA-256) encrypted and base64\n encoded, exactly like an account password.",
+        "operationId": "NodeService_UnlockNode",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "nodeId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.UnlockNodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.NodeUnlock"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "NodeService"
+        ]
+      }
+    },
+    "/v1/nodes/{nodeId}/versions/list": {
+      "get": {
+        "description": "ListNodeVersions returns the content history of a file node.",
+        "operationId": "NodeService_ListNodeVersions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "nodeId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageToken",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.NodeVersionSet"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "NodeService"
+        ]
+      }
+    },
+    "/v1/nodes/{nodeId}/versions/{versionId}": {
+      "delete": {
+        "description": "DeleteNodeVersion drops one version and reclaims its stored object.",
+        "operationId": "NodeService_DeleteNodeVersion",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "nodeId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "versionId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {},
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "NodeService"
+        ]
+      }
+    },
+    "/v1/shares/access": {
+      "post": {
+        "description": "AccessShare resolves a share token into the shared node and its first\n level of children. This endpoint is public. When the share is password\n protected and no valid access_token is supplied it returns\n NETDISK_NODE_LOCKED together with a password hint.\n\n本接口为公开接口，无需访问令牌。",
+        "operationId": "ShareService_AccessShare",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.AccessShareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.ShareAccess"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "security": [],
+        "tags": [
+          "ShareService"
+        ]
+      }
+    },
+    "/v1/shares/by-node/list": {
+      "get": {
+        "description": "ListSharesByNode returns the shares attached to one node.",
+        "operationId": "ShareService_ListSharesByNode",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "nodeId",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageToken",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.ShareSet"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "ShareService"
+        ]
+      }
+    },
+    "/v1/shares/children/list": {
+      "post": {
+        "description": "ListShareChildren browses a shared folder. This endpoint is public and\n requires the access_token returned by AccessShare for protected shares.\n\n本接口为公开接口，无需访问令牌。",
+        "operationId": "ShareService_ListShareChildren",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.ListShareChildrenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.NodeSet"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "security": [],
+        "tags": [
+          "ShareService"
+        ]
+      }
+    },
+    "/v1/shares/create": {
+      "post": {
+        "description": "CreateShare grants a capability over a node. Requires PERMISSION_SHARE on\n the node and PERMISSION_DOWNLOAD when the share may download.",
+        "operationId": "ShareService_CreateShare",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.CreateShareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.Share"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "ShareService"
+        ]
+      }
+    },
+    "/v1/shares/download-url": {
+      "post": {
+        "description": "GetShareDownloadUrl returns a signed URL for a node inside a share. This\n endpoint is public and honours the share capability set, its expiry, its\n password and its download budget.\n\n本接口为公开接口，无需访问令牌。",
+        "operationId": "ShareService_GetShareDownloadUrl",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.GetShareDownloadUrlRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.SignedUrl"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "security": [],
+        "tags": [
+          "ShareService"
+        ]
+      }
+    },
+    "/v1/shares/list": {
+      "get": {
+        "description": "ListShares returns share links. Callers without PERMISSION_USER_MANAGE see\n only their own shares.",
+        "operationId": "ShareService_ListShares",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pageToken",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. The standard list filter.\n Supported fields: `node_id`, `owner_id`, `name`, `status`, `token`,\n `created_at` and `expires_at` ranges.",
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. Comma-separated ordering fields. Supported fields: `name`,\n `created_at`, `updated_at`, `expires_at`, `download_count`, `view_count`.",
+            "in": "query",
+            "name": "orderBy",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.ShareSet"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "ShareService"
+        ]
+      }
+    },
+    "/v1/shares/update": {
+      "put": {
+        "description": "UpdateShare changes the capability set, password, expiry or budget of an\n existing share.",
+        "operationId": "ShareService_UpdateShare",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.UpdateShareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.Share"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "ShareService"
+        ]
+      }
+    },
+    "/v1/shares/{id}": {
+      "delete": {
+        "description": "DeleteShare revokes a share immediately.",
+        "operationId": "ShareService_DeleteShare",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {},
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "ShareService"
+        ]
+      },
+      "get": {
+        "description": "GetShare returns one share link by id. The caller must own the share or\n hold PERMISSION_USER_MANAGE.",
+        "operationId": "ShareService_GetShare",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.Share"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "ShareService"
+        ]
+      }
+    },
+    "/v1/system/health": {
+      "get": {
+        "description": "HealthCheck reports whether the process can reach its dependencies. This\n endpoint is public.\n\n本接口为公开接口，无需访问令牌。",
+        "operationId": "SystemService_HealthCheck",
+        "parameters": [
+          {
+            "description": "Probe dependencies instead of only reporting process liveness.",
+            "in": "query",
+            "name": "deep",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.HealthStatus"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "security": [],
+        "tags": [
+          "SystemService"
+        ]
+      }
+    },
+    "/v1/system/info": {
+      "get": {
+        "description": "GetSystemInfo returns the capabilities, limits and public auth parameters\n of this deployment. This endpoint is public.\n\n本接口为公开接口，无需访问令牌。",
+        "operationId": "SystemService_GetSystemInfo",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.SystemInfo"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "security": [],
+        "tags": [
+          "SystemService"
+        ]
+      }
+    },
+    "/v1/system/maintenance/run": {
+      "post": {
+        "description": "RunMaintenance triggers the housekeeping jobs: expiring stale upload\n sessions, releasing objects queued for deletion, reclaiming orphaned\n objects, expiring share links and recounting per-account usage.",
+        "operationId": "SystemService_RunMaintenance",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.RunMaintenanceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.MaintenanceReport"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "SystemService"
+        ]
+      }
+    },
+    "/v1/system/settings/list": {
+      "get": {
+        "description": "ListSystemSettings returns the runtime tunables that may be changed\n without a restart.",
+        "operationId": "SystemService_ListSystemSettings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.SystemSettingSet"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "SystemService"
+        ]
+      }
+    },
+    "/v1/system/settings/update": {
+      "put": {
+        "description": "UpdateSystemSettings writes runtime tunables. Values are validated against\n the documented bounds of each key.",
+        "operationId": "SystemService_UpdateSystemSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.UpdateSystemSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.SystemSettingSet"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "SystemService"
+        ]
+      }
+    },
+    "/v1/system/storage/stats": {
+      "get": {
+        "description": "GetStorageStats aggregates storage usage across accounts.",
+        "operationId": "SystemService_GetStorageStats",
+        "parameters": [
+          {
+            "description": "Number of largest consumers to return. Defaults to 10, capped at 100.",
+            "in": "query",
+            "name": "topOwners",
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.StorageStats"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "SystemService"
+        ]
+      }
+    },
+    "/v1/users/create": {
+      "post": {
+        "description": "CreateUser provisions an account. The supplied rank must be lower than the\n caller's rank and the supplied permissions must be a subset of the\n caller's permissions. When role is omitted the preset of ROLE_GUEST is\n used, so an unconfigured account is read-only.\n Returns PERMISSION_DENIED when the caller cannot manage the requested\n rank or permission set, and ALREADY_EXISTS on a duplicate username.",
+        "operationId": "UserService_CreateUser",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.CreateUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.User"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "UserService"
+        ]
+      }
+    },
+    "/v1/users/list": {
+      "get": {
+        "description": "ListUsers returns a page of accounts. Requires PERMISSION_USER_MANAGE.\n\n Declared before GetUser on purpose: the HTTP router registers routes in\n declaration order, so `/v1/users/list` has to be claimed before the\n `/v1/users/{id}` wildcard, otherwise \"list\" is read as an account id and\n the request fails with INVALID_ARGUMENT.",
+        "operationId": "UserService_ListUsers",
+        "parameters": [
+          {
+            "description": "Optional. Maximum number of accounts to return. Defaults to 20, capped at\n 200.",
+            "in": "query",
+            "name": "pageSize",
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Optional. Token from a previous response's next_page_token.",
+            "in": "query",
+            "name": "pageToken",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. The standard list filter.\n Supported fields:\n    * `username` (i.e. `username:\"alice\"`)\n    * `nickname`\n    * `email`\n    * `role` (i.e. `role=2`)\n    * `status` (i.e. `status=1`)\n    * `rank` (i.e. `rank\u003c500`)\n    * `created_at` range\n    * `last_login_at` range",
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. Comma-separated ordering fields.\n Supported fields: `username`, `nickname`, `role`, `rank`, `status`,\n `used_bytes`, `created_at`, `updated_at`, `last_login_at`.",
+            "in": "query",
+            "name": "orderBy",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. Include accounts with USER_STATUS_DELETED.",
+            "in": "query",
+            "name": "includeDeleted",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.UserSet"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "UserService"
+        ]
+      }
+    },
+    "/v1/users/password/reset": {
+      "post": {
+        "description": "ResetUserPassword sets a new password for another account and revokes\n every session of that account.",
+        "operationId": "UserService_ResetUserPassword",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.ResetUserPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {},
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "UserService"
+        ]
+      }
+    },
+    "/v1/users/permissions/catalog": {
+      "get": {
+        "description": "ListPermissionCatalog returns every permission with its Chinese label,\n grouped by category. Available to every authenticated caller.",
+        "operationId": "UserService_ListPermissionCatalog",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.PermissionCatalog"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "UserService"
+        ]
+      }
+    },
+    "/v1/users/permissions/set": {
+      "post": {
+        "description": "SetUserPermissions replaces an account's permission set. The new set must\n be a subset of the caller's own permissions.",
+        "operationId": "UserService_SetUserPermissions",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.SetUserPermissionsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.User"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "UserService"
+        ]
+      }
+    },
+    "/v1/users/roles/list": {
+      "get": {
+        "description": "ListRolePresets returns the built-in permission templates together with\n the rank bounds the caller may assign. This endpoint is available to every\n authenticated caller so account forms can render themselves.",
+        "operationId": "UserService_ListRolePresets",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.RolePresetSet"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "UserService"
+        ]
+      }
+    },
+    "/v1/users/stats/{id}": {
+      "get": {
+        "description": "GetUserStats returns storage counters for one account. A caller without\n PERMISSION_USER_MANAGE may only read its own counters.",
+        "operationId": "UserService_GetUserStats",
+        "parameters": [
+          {
+            "description": "Account id. The literal value \"me\" resolves to the calling account.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.UserStats"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "UserService"
+        ]
+      }
+    },
+    "/v1/users/update": {
+      "put": {
+        "description": "UpdateUser applies a partial update. Only fields named in update_mask are\n written. role, rank, permissions and quota_bytes may only be changed by a\n caller that outranks the target and holds the matching permission.",
+        "operationId": "UserService_UpdateUser",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/netdisk.v1.UpdateUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.User"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "UserService"
+        ]
+      }
+    },
+    "/v1/users/{id}": {
+      "delete": {
+        "description": "DeleteUser soft deletes an account, revokes its sessions and moves its\n nodes to the trash. Requires PERMISSION_USER_MANAGE and a strictly higher\n rank.",
+        "operationId": "UserService_DeleteUser",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Move the account's nodes to the trash instead of leaving them in place.",
+            "in": "query",
+            "name": "trashNodes",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {},
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "UserService"
+        ]
+      },
+      "get": {
+        "description": "GetUser returns one account. A caller without PERMISSION_USER_MANAGE may\n only read its own account.",
+        "operationId": "UserService_GetUser",
+        "parameters": [
+          {
+            "description": "Account id. The literal value \"me\" resolves to the calling account.",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/netdisk.v1.User"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/Internal"
+          }
+        },
+        "tags": [
+          "UserService"
+        ]
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "servers": [
+    {
+      "description": "本地开发环境",
+      "url": "http://127.0.0.1:8000"
+    }
+  ],
+  "tags": [
+    {
+      "description": "账号认证与会话管理：登录、刷新、退出、修改密码。除 GetAuthConfig 与 Login 外均需访问令牌。",
+      "name": "AuthService"
+    },
+    {
+      "description": "账号管理：仅持有 user_manage 权限且等级严格高于目标的账号可以创建、修改、禁用、删除账号并分配权限。",
+      "name": "UserService"
+    },
+    {
+      "description": "文件树：文件夹与文件统一为节点，共用描述、可见范围、访问名单与密码模型。",
+      "name": "NodeService"
+    },
+    {
+      "description": "内容传输：分片上传、签名下载地址、预览与打包下载。",
+      "name": "FileService"
+    },
+    {
+      "description": "分享链接：把节点以独立的能力集合发布给没有账号的访问者。AccessShare、ListShareChildren、GetShareDownloadUrl 为匿名接口。",
+      "name": "ShareService"
+    },
+    {
+      "description": "审计日志：记录每一次状态变更及其结果，只增不改。",
+      "name": "AuditService"
+    },
+    {
+      "description": "系统信息、存储统计、运行参数与维护任务。GetSystemInfo 与 HealthCheck 为匿名接口。",
+      "name": "SystemService"
+    }
+  ]
+}

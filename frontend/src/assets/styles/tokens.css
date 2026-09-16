@@ -1,0 +1,184 @@
+/*
+ * 设计令牌：所有颜色、间距、圆角、阴影、字号的唯一来源。
+ * 组件里只允许引用变量，不允许出现硬编码的十六进制色值。
+ * 深浅两套主题共用同一组语义变量名，切换 data-theme 即整体换肤。
+ */
+
+:root {
+  /* 品牌色阶（Indigo） */
+  --brand-50: #eef2ff;
+  --brand-100: #e0e7ff;
+  --brand-200: #c7d2fe;
+  --brand-300: #a5b4fc;
+  --brand-400: #818cf8;
+  --brand-500: #6366f1;
+  --brand-600: #4f46e5;
+  --brand-700: #4338ca;
+  --brand-800: #3730a3;
+
+  /* 中性色阶 */
+  --neutral-0: #ffffff;
+  --neutral-25: #fcfcfd;
+  --neutral-50: #f8fafc;
+  --neutral-100: #f1f5f9;
+  --neutral-200: #e6eaf2;
+  --neutral-300: #cbd5e1;
+  --neutral-400: #94a3b8;
+  --neutral-500: #64748b;
+  --neutral-600: #475569;
+  --neutral-700: #334155;
+  --neutral-800: #1e293b;
+  --neutral-900: #0f172a;
+  --neutral-950: #080f22;
+
+  /* 语义色 */
+  --success-50: #ecfdf5;
+  --success-500: #10b981;
+  --success-600: #059669;
+  --warning-50: #fffbeb;
+  --warning-500: #f59e0b;
+  --warning-600: #d97706;
+  --danger-50: #fef2f2;
+  --danger-500: #ef4444;
+  --danger-600: #dc2626;
+  --info-50: #eff6ff;
+  --info-500: #3b82f6;
+  --info-600: #2563eb;
+
+  /* 主题：浅色 */
+  --bg-app: #f4f6fb;
+  --bg-sunken: #eef1f8;
+  --surface: #ffffff;
+  --surface-2: var(--neutral-50);
+  --surface-3: var(--neutral-100);
+  --surface-hover: #f5f7fc;
+  --surface-active: var(--brand-50);
+  --overlay: rgba(15, 23, 42, 0.45);
+
+  --text: var(--neutral-900);
+  --text-strong: var(--neutral-950);
+  --text-muted: var(--neutral-500);
+  --text-faint: var(--neutral-400);
+  --text-inverse: #ffffff;
+
+  --border: #e4e8f1;
+  --border-strong: #d3d9e6;
+  --border-subtle: #eef1f7;
+
+  --accent: var(--brand-600);
+  --accent-hover: var(--brand-700);
+  --accent-active: var(--brand-800);
+  --accent-soft: var(--brand-50);
+  --accent-soft-hover: var(--brand-100);
+  --accent-text: var(--brand-700);
+  --accent-contrast: #ffffff;
+
+  --focus-ring: 0 0 0 3px rgba(99, 102, 241, 0.28);
+
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 6px 16px -6px rgba(15, 23, 42, 0.16), 0 2px 6px rgba(15, 23, 42, 0.05);
+  --shadow-lg: 0 18px 40px -12px rgba(15, 23, 42, 0.24), 0 4px 12px rgba(15, 23, 42, 0.08);
+  --shadow-xl: 0 32px 64px -16px rgba(15, 23, 42, 0.32);
+
+  /* 间距刻度（4 的倍数） */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+
+  --font-sans:
+    'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+
+  --text-2xs: 11px;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 17px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 30px;
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.6;
+
+  --layout-sidebar: 244px;
+  --layout-topbar: 60px;
+  --layout-content-max: 1360px;
+
+  --z-base: 1;
+  --z-sticky: 20;
+  --z-drawer: 60;
+  --z-modal: 70;
+  --z-toast: 90;
+
+  --transition-fast: 120ms ease;
+  --transition-base: 180ms cubic-bezier(0.32, 0.72, 0, 1);
+  --transition-slow: 280ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg-app: #080c1a;
+  --bg-sunken: #05080f;
+  --surface: #101728;
+  --surface-2: #151d31;
+  --surface-3: #1b2440;
+  --surface-hover: #18203a;
+  --surface-active: #1d2748;
+  --overlay: rgba(2, 6, 23, 0.68);
+
+  --text: #e6ebf5;
+  --text-strong: #f7f9fd;
+  --text-muted: #97a3bd;
+  --text-faint: #6b7897;
+  --text-inverse: #0b1120;
+
+  --border: #232c47;
+  --border-strong: #2f3a5c;
+  --border-subtle: #1b2340;
+
+  --brand-50: #1b2242;
+  --brand-100: #232c56;
+  --accent: var(--brand-500);
+  --accent-hover: var(--brand-400);
+  --accent-active: var(--brand-300);
+  --accent-soft: rgba(99, 102, 241, 0.16);
+  --accent-soft-hover: rgba(99, 102, 241, 0.26);
+  --accent-text: var(--brand-300);
+  --accent-contrast: #ffffff;
+
+  --success-50: rgba(16, 185, 129, 0.14);
+  --warning-50: rgba(245, 158, 11, 0.16);
+  --danger-50: rgba(239, 68, 68, 0.16);
+  --info-50: rgba(59, 130, 246, 0.16);
+  --success-600: #34d399;
+  --warning-600: #fbbf24;
+  --danger-600: #f87171;
+  --info-600: #60a5fa;
+
+  --focus-ring: 0 0 0 3px rgba(129, 140, 248, 0.32);
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 8px 20px -8px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 22px 48px -16px rgba(0, 0, 0, 0.7);
+  --shadow-xl: 0 36px 72px -20px rgba(0, 0, 0, 0.8);
+}

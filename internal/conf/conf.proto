@@ -1,0 +1,195 @@
+syntax = "proto3";
+package kratos.api;
+
+option go_package = "nagisa/internal/conf;conf";
+
+import "google/protobuf/duration.proto";
+
+// Bootstrap is the root of the runtime configuration.
+//
+// It is loaded from the file passed to -conf (a directory is read as
+// <dir>/config.yaml) and then overridden by the KRATOS-prefixed environment
+// source. Every field is read once at startup, so a change needs a restart.
+//
+// Every google.protobuf.Duration below is written in the protobuf JSON form,
+// which is a string of seconds such as "1800s" or "0.5s". Values like "30m" or
+// "2h" are rejected at startup. The full reference, including the effective
+// default of each key, is docs/configuration.md.
+message Bootstrap {
+  Server server = 1;
+  Data data = 2;
+  Auth auth = 3;
+  Storage storage = 4;
+  Upload upload = 5;
+  Web web = 6;
+}
+
+message Server {
+  message HTTP {
+    string network = 1;
+    string addr = 2;
+    google.protobuf.Duration timeout = 3;
+    // Maximum accepted request body in bytes. Zero falls back to the built-in
+    // default of 32 MiB so a single inline upload cannot exhaust memory.
+    int64 max_body_size = 4;
+  }
+  message GRPC {
+    string network = 1;
+    string addr = 2;
+    google.protobuf.Duration timeout = 3;
+  }
+  HTTP http = 1;
+  GRPC grpc = 2;
+}
+
+message Data {
+  message Database {
+    // Driver name registered with database/sql, for example "sqlite3" or
+    // "mysql".
+    string driver = 1;
+    // Driver-specific DSN. Keep credentials out of version control.
+    string source = 2;
+    // Log every generated statement. Development only.
+    bool debug = 3;
+    // Create or update tables from the ent schema on startup. Leave false in
+    // production and apply migrations as a separate, reviewed step.
+    bool auto_migrate = 4;
+    int32 max_open_conns = 5;
+    int32 max_idle_conns = 6;
+    google.protobuf.Duration conn_max_lifetime = 7;
+    // Enable write-ahead logging. Recommended for SQLite.
+    bool wal = 8;
+    // How long a writer waits for the database lock before failing.
+    google.protobuf.Duration busy_timeout = 9;
+    // Enforce foreign key constraints.
+    bool foreign_keys = 10;
+  }
+  message ObjectStorage {
+    // S3 compatible endpoint, for example "127.0.0.1:9000".
+    string endpoint = 1;
+    string access_key = 2;
+    string secret_key = 3;
+    string bucket = 4;
+    string region = 5;
+    bool use_ssl = 6;
+    // Endpoint used when signing URLs handed to browsers. Set it when clients
+    // reach object storage through a different address than the server does.
+    string public_endpoint = 7;
+    // Create the bucket on startup when it is missing.
+    bool auto_create_bucket = 8;
+    // Key prefix every object is stored under.
+    string prefix = 9;
+    // Lifetime of presigned part and download URLs.
+    google.protobuf.Duration presign_ttl = 10;
+    // Skip TLS certificate verification. Development only.
+    bool insecure_skip_verify = 11;
+  }
+  Database database = 1;
+  ObjectStorage object_storage = 2;
+}
+
+message Auth {
+  // HMAC secret used to sign access tokens. Required outside development.
+  string jwt_secret = 1;
+  string issuer = 2;
+  google.protobuf.Duration access_token_ttl = 3;
+  google.protobuf.Duration refresh_token_ttl = 4;
+  // PEM encoded PKCS#8 RSA private key used to decrypt password fields. When
+  // empty the key is loaded from password_private_key_file, and generated and
+  // persisted there when that file does not exist either.
+  string password_private_key = 5;
+  string password_private_key_file = 6;
+  // Accept a password that was not RSA encoded. Development only.
+  bool allow_plain_password = 7;
+  // Bootstrap administrator. Created on first start when the account is
+  // missing. Leave admin_password empty to have a random one generated and
+  // logged once.
+  string admin_username = 8;
+  string admin_password = 9;
+  // Bootstrap read-only guest account.
+  string guest_username = 10;
+  string guest_password = 11;
+  // Lifetime of the node unlock token returned by NodeService.UnlockNode.
+  google.protobuf.Duration node_token_ttl = 12;
+  // Minimum password length accepted for accounts.
+  int32 min_password_length = 13;
+  // Let anyone open a read-only guest session without a password through
+  // AuthService.GuestLogin. The built-in guest account keeps its fixed
+  // read-only permission set either way.
+  bool guest_auto_login = 14;
+}
+
+message Storage {
+  // Name shown for the root of the tree.
+  string root_folder_name = 1;
+  // Quota applied to newly created accounts when the creator does not set one.
+  int64 default_quota_bytes = 2;
+  // Quota applied to the built-in guest account.
+  int64 guest_quota_bytes = 3;
+  // Treat names that differ only in case as the same name.
+  bool case_insensitive_names = 4;
+  // Allow share links to be redeemed without an account.
+  bool allow_public_share = 5;
+  // How long a trashed node is retained before maintenance purges it.
+  google.protobuf.Duration trash_retention = 6;
+  // Visibility applied to newly created nodes. One of "private", "internal",
+  // "public".
+  string default_visibility = 7;
+  // Maximum nesting depth of the tree.
+  int32 max_path_depth = 8;
+  // Maximum length of a node name in bytes.
+  int32 max_name_length = 9;
+  // Default permission preset applied to accounts created without an explicit
+  // set. One of "guest", "user", "manager".
+  string default_role_preset = 10;
+}
+
+message Upload {
+  // Part size used when a client does not request one.
+  int64 default_chunk_size = 1;
+  // Smallest accepted part size. S3 requires 5 MiB for every part but the
+  // last, so this must not go below 5242880 unless the backend allows it.
+  int64 min_chunk_size = 2;
+  // Largest accepted part size.
+  int64 max_chunk_size = 3;
+  // Largest accepted file size. Zero means unlimited.
+  int64 max_file_size = 4;
+  // Largest payload accepted by FileService.UploadSmallFile.
+  int64 max_inline_size = 5;
+  // How long an upload session stays open.
+  google.protobuf.Duration session_ttl = 6;
+  // Default transport for part payloads. One of "presigned", "proxy".
+  string default_mode = 7;
+  // Maximum number of parts a single multipart upload may have.
+  int32 max_parts = 8;
+  // Verify the declared SHA-256 digest at completion.
+  bool verify_checksum = 9;
+  // Retain the previous content as a version when a file is overwritten.
+  bool keep_versions = 10;
+  // Maximum number of versions retained per file. Zero means unlimited.
+  int32 max_versions = 11;
+}
+
+message Web {
+  // Serve a single page application from the Kratos HTTP server. This is the
+  // attachment point for the netdisk front end.
+  bool enabled = 1;
+  // Directory holding the built front end, for example "./web/dist".
+  string root = 2;
+  // File served for a directory request and for the SPA fallback.
+  string index = 3;
+  // Serve index for unknown paths so client side routing works.
+  bool spa_fallback = 4;
+  // Absolute URL prefix used to build share links.
+  string public_base_url = 5;
+  // Path prefix the front end is served under.
+  string path_prefix = 6;
+  repeated string cors_origins = 7;
+  repeated string cors_methods = 8;
+  repeated string cors_headers = 9;
+  bool cors_allow_credentials = 10;
+  // Browser cache lifetime for static assets.
+  google.protobuf.Duration cache_max_age = 11;
+  // Prefix of a share URL, appended to public_base_url.
+  string share_path_prefix = 12;
+}

@@ -1,0 +1,138 @@
+# Nagisa netdisk runtime configuration.
+#
+# What every entry below means:  configs/README.md      <- start here
+# Full key reference (types, effective defaults, override rules, examples):
+#   docs/configuration.md
+# Deployment guidance: docs/deployment.md.
+#
+# Two things bite people:
+#   * every Duration is a *string of seconds* ("1800s"), never "30m" or "2h";
+#   * a value written as ${KEY:default} is filled by the environment variable
+#     KRATOS_KEY, not by an OS variable named KEY.
+#
+# Overrides: KRATOS_<dotted.path> (e.g. KRATOS_server.http.addr) or the
+# KRATOS_<KEY> form for the placeholders below. Restart after changing anything.
+server:
+  http:
+    addr: 0.0.0.0:8000
+    # Streaming downloads and chunk uploads need a generous timeout; the AIP
+    # default of one second would abort any real transfer.
+    timeout: 600s
+  grpc:
+    addr: 0.0.0.0:9000
+    timeout: 600s
+
+data:
+  database:
+    driver: sqlite
+    source: ${DATABASE_SOURCE:./data/nagisa.db}
+    # Development conveniences. Apply schema changes as a reviewed step in
+    # production and turn both flags off there.
+    debug: false
+    auto_migrate: true
+    max_open_conns: 8
+    max_idle_conns: 8
+    wal: true
+    busy_timeout: 10s
+    foreign_keys: true
+  object_storage:
+    # Any S3 compatible backend works. The default matches SeaweedFS, whose
+    # `weed server -s3` serves the S3 API on 8333.
+    endpoint: ${S3_ENDPOINT:127.0.0.1:8333}
+    access_key: ${S3_ACCESS_KEY:nagisa}
+    secret_key: ${S3_SECRET_KEY:nagisa-secret}
+    bucket: ${S3_BUCKET:nagisa}
+    region: ""
+    use_ssl: false
+    # Set this when browsers reach object storage through another address, for
+    # example a reverse proxy. It is used to sign download URLs.
+    public_endpoint: ${S3_PUBLIC_ENDPOINT:}
+    auto_create_bucket: true
+    prefix: netdisk
+    presign_ttl: 1800s
+    insecure_skip_verify: false
+
+auth:
+  # Required in production. When empty a random secret is generated per process
+  # and every token becomes invalid after a restart.
+  jwt_secret: ${JWT_SECRET:}
+  issuer: nagisa-netdisk
+  access_token_ttl: 7200s
+  refresh_token_ttl: 2592000s
+  password_private_key_file: ${PASSWORD_KEY_FILE:./data/password_key.pem}
+  # Only ever true for a local, throwaway deployment: it lets a client send a
+  # password without RSA encoding it first.
+  allow_plain_password: false
+  admin_username: admin
+  # Leave empty to have a random password generated and logged once at first
+  # start, which is the safer default for a fresh deployment.
+  admin_password: ${ADMIN_PASSWORD:}
+  guest_username: guest
+  guest_password: ${GUEST_PASSWORD:}
+  # Anyone may open a read-only guest session without a password, which is what
+  # lets the web front end show readable content straight away. The built-in
+  # guest account keeps its fixed read-only permission set either way.
+  guest_auto_login: true
+  node_token_ttl: 1800s
+  min_password_length: 8
+
+storage:
+  root_folder_name: 我的网盘
+  # Zero means unlimited. The built-in guest account gets its own smaller quota
+  # so a read-only visitor cannot be used to mirror a large archive.
+  default_quota_bytes: 0
+  guest_quota_bytes: 1073741824
+  case_insensitive_names: true
+  allow_public_share: true
+  trash_retention: 2592000s
+  default_visibility: private
+  max_path_depth: 32
+  max_name_length: 255
+  default_role_preset: guest
+
+upload:
+  # Object storage requires every part but the last to be at least 5 MiB, so
+  # min_chunk_size must not be lowered below 5242880.
+  default_chunk_size: 8388608
+  min_chunk_size: 5242880
+  max_chunk_size: 5368709120
+  # Zero means unlimited.
+  max_file_size: 0
+  max_inline_size: 4194304
+  session_ttl: 86400s
+  default_mode: presigned
+  max_parts: 10000
+  verify_checksum: true
+  keep_versions: true
+  max_versions: 20
+
+web:
+  # Serves the netdisk front end from the Kratos HTTP server. Build the SPA
+  # into web/dist, or point root somewhere else.
+  enabled: true
+  root: ${WEB_ROOT:./web/dist}
+  index: index.html
+  spa_fallback: true
+  public_base_url: ${PUBLIC_BASE_URL:http://127.0.0.1:8000}
+  path_prefix: /
+  cors_origins:
+    - ${CORS_ORIGIN:http://127.0.0.1:5173}
+    - http://localhost:5173
+  cors_methods:
+    - GET
+    - POST
+    - PUT
+    - PATCH
+    - DELETE
+    - OPTIONS
+  cors_headers:
+    - Authorization
+    - Content-Type
+    - X-Node-Token
+    - X-Share-Token
+    - X-Request-Id
+  # Keep this false unless the front end sends cookies, since the browser
+  # refuses a wildcard origin together with credentials.
+  cors_allow_credentials: false
+  cache_max_age: 3600s
+  share_path_prefix: /s

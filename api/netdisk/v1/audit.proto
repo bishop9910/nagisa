@@ -1,0 +1,147 @@
+syntax = "proto3";
+
+package netdisk.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "nagisa/api/netdisk/v1;v1";
+option java_multiple_files = true;
+option java_package = "io.nagisa.netdisk.v1";
+option java_outer_classname = "AuditProto";
+option objc_class_prefix = "APINetdiskV1";
+
+// AuditService exposes the append-only audit trail.
+//
+// Every state changing call writes one entry, and rejected calls write one too,
+// so an incident can be reconstructed from the trail alone. Entries are never
+// updated or deleted through the API. Reading requires PERMISSION_AUDIT_READ;
+// a caller without it sees only its own entries.
+service AuditService {
+  // ListAuditLogs returns a page of audit entries, newest first by default.
+  rpc ListAuditLogs (ListAuditLogsRequest) returns (AuditLogSet) {
+    option (google.api.http) = {
+      get: "/v1/audit/logs/list"
+    };
+  }
+
+  // GetAuditLog returns a single audit entry by id.
+  rpc GetAuditLog (GetAuditLogRequest) returns (AuditLog) {
+    option (google.api.http) = {
+      get: "/v1/audit/logs/{id}"
+    };
+  }
+
+  // GetAuditSummary aggregates the trail by action, actor and day.
+  rpc GetAuditSummary (GetAuditSummaryRequest) returns (AuditSummary) {
+    option (google.api.http) = {
+      get: "/v1/audit/summary"
+    };
+  }
+}
+
+// AuditLog is one recorded action.
+message AuditLog {
+  string id = 1;
+  // Account that performed the action. Empty for anonymous callers.
+  string actor_id = 2;
+  // Account name at the time of the action.
+  string actor_name = 3;
+  // Machine readable action name, for example "node.create_folder".
+  string action = 4;
+  // Human readable Chinese description.
+  string action_display = 5;
+  // Resource family, for example "node", "user" or "share".
+  string target_type = 6;
+  // Identifier of the affected resource.
+  string target_id = 7;
+  // Display name of the affected resource at the time of the action.
+  string target_name = 8;
+  // Whether the action succeeded.
+  bool success = 9;
+  // Error reason when success is false.
+  string error_reason = 10;
+  // Free-form detail, for example the previous and new name.
+  map<string, string> detail = 11;
+  // Source address.
+  string ip = 12;
+  // Client user agent.
+  string user_agent = 13;
+  // Correlation id shared with the server logs.
+  string request_id = 14;
+  // Time the action completed.
+  google.protobuf.Timestamp created_at = 15;
+}
+
+// AuditLogSet is a paginated collection of audit entries.
+message AuditLogSet {
+  repeated AuditLog logs = 1;
+  string next_page_token = 2;
+  int64 total_size = 3;
+}
+
+// AuditActionCount is one entry of an aggregated audit summary.
+message AuditActionCount {
+  string action = 1;
+  string action_display = 2;
+  int64 count = 3;
+}
+
+// AuditActorCount is one actor of an aggregated audit summary.
+message AuditActorCount {
+  string actor_id = 1;
+  string actor_name = 2;
+  int64 count = 3;
+}
+
+// AuditSummary aggregates the audit trail over a time window.
+message AuditSummary {
+  google.protobuf.Timestamp from = 1;
+  google.protobuf.Timestamp to = 2;
+  int64 total = 3;
+  int64 failure_count = 4;
+  repeated AuditActionCount by_action = 5;
+  repeated AuditActorCount by_actor = 6;
+  // Counts keyed by ISO-8601 date.
+  map<string, int64> by_day = 7;
+}
+
+// ListAuditLogsRequest is the input for AuditService.ListAuditLogs.
+message ListAuditLogsRequest {
+  // Optional. Maximum number of entries to return. Defaults to 20, capped at
+  // 500.
+  int32 page_size = 1;
+  string page_token = 2;
+  // Optional. The standard list filter.
+  // Supported fields:
+  //    * `actor_id`
+  //    * `actor_name`
+  //    * `action` (i.e. `action:"node."` for a prefix match)
+  //    * `target_type`
+  //    * `target_id`
+  //    * `success` (i.e. `success` for successful calls, `NOT success` for
+  //      failed ones; `success=true` and `success=false` are also accepted)
+  //    * `ip`
+  //    * `created_at` range
+  string filter = 3;
+  // Optional. Comma-separated ordering fields, in the AIP syntax where a
+  // descending field is written with a `desc` suffix (`order_by=created_at desc`).
+  // Supported fields: `created_at`, `action`, `actor_name`.
+  string order_by = 4;
+}
+
+// GetAuditLogRequest is the input for AuditService.GetAuditLog.
+message GetAuditLogRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// GetAuditSummaryRequest is the input for AuditService.GetAuditSummary.
+message GetAuditSummaryRequest {
+  // Optional. Start of the window. Defaults to 7 days before to.
+  google.protobuf.Timestamp from = 1;
+  // Optional. End of the window. Defaults to now.
+  google.protobuf.Timestamp to = 2;
+  // Optional. Restrict the aggregation to one action prefix.
+  string action_prefix = 3;
+}

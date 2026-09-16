@@ -1,0 +1,302 @@
+syntax = "proto3";
+
+package netdisk.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+import "netdisk/v1/common.proto";
+
+option go_package = "nagisa/api/netdisk/v1;v1";
+option java_multiple_files = true;
+option java_package = "io.nagisa.netdisk.v1";
+option java_outer_classname = "UserProto";
+option objc_class_prefix = "APINetdiskV1";
+
+// UserService owns accounts, their permission sets and their quota.
+//
+// Authority is a strict total order over Account.rank. A caller may only
+// create, modify or delete an account whose rank is strictly lower than its
+// own, may only grant permissions it holds itself, and may never touch the
+// built-in administrator. Creating an account additionally requires
+// PERMISSION_USER_MANAGE, which only administrators hold by default.
+service UserService {
+  // CreateUser provisions an account. The supplied rank must be lower than the
+  // caller's rank and the supplied permissions must be a subset of the
+  // caller's permissions. When role is omitted the preset of ROLE_GUEST is
+  // used, so an unconfigured account is read-only.
+  // Returns PERMISSION_DENIED when the caller cannot manage the requested
+  // rank or permission set, and ALREADY_EXISTS on a duplicate username.
+  rpc CreateUser (CreateUserRequest) returns (User) {
+    option (google.api.http) = {
+      post: "/v1/users/create"
+      body: "*"
+    };
+  }
+
+  // ListUsers returns a page of accounts. Requires PERMISSION_USER_MANAGE.
+  //
+  // Declared before GetUser on purpose: the HTTP router registers routes in
+  // declaration order, so `/v1/users/list` has to be claimed before the
+  // `/v1/users/{id}` wildcard, otherwise "list" is read as an account id and
+  // the request fails with INVALID_ARGUMENT.
+  rpc ListUsers (ListUsersRequest) returns (UserSet) {
+    option (google.api.http) = {
+      get: "/v1/users/list"
+    };
+  }
+
+  // GetUser returns one account. A caller without PERMISSION_USER_MANAGE may
+  // only read its own account.
+  rpc GetUser (GetUserRequest) returns (User) {
+    option (google.api.http) = {
+      get: "/v1/users/{id}"
+    };
+  }
+
+  // UpdateUser applies a partial update. Only fields named in update_mask are
+  // written. role, rank, permissions and quota_bytes may only be changed by a
+  // caller that outranks the target and holds the matching permission.
+  rpc UpdateUser (UpdateUserRequest) returns (User) {
+    option (google.api.http) = {
+      put: "/v1/users/update"
+      body: "*"
+    };
+  }
+
+  // DeleteUser soft deletes an account, revokes its sessions and moves its
+  // nodes to the trash. Requires PERMISSION_USER_MANAGE and a strictly higher
+  // rank.
+  rpc DeleteUser (DeleteUserRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/users/{id}"
+    };
+  }
+
+  // SetUserPermissions replaces an account's permission set. The new set must
+  // be a subset of the caller's own permissions.
+  rpc SetUserPermissions (SetUserPermissionsRequest) returns (User) {
+    option (google.api.http) = {
+      post: "/v1/users/permissions/set"
+      body: "*"
+    };
+  }
+
+  // ResetUserPassword sets a new password for another account and revokes
+  // every session of that account.
+  rpc ResetUserPassword (ResetUserPasswordRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/users/password/reset"
+      body: "*"
+    };
+  }
+
+  // ListRolePresets returns the built-in permission templates together with
+  // the rank bounds the caller may assign. This endpoint is available to every
+  // authenticated caller so account forms can render themselves.
+  rpc ListRolePresets (ListRolePresetsRequest) returns (RolePresetSet) {
+    option (google.api.http) = {
+      get: "/v1/users/roles/list"
+    };
+  }
+
+  // ListPermissionCatalog returns every permission with its Chinese label,
+  // grouped by category. Available to every authenticated caller.
+  rpc ListPermissionCatalog (ListPermissionCatalogRequest) returns (PermissionCatalog) {
+    option (google.api.http) = {
+      get: "/v1/users/permissions/catalog"
+    };
+  }
+
+  // GetUserStats returns storage counters for one account. A caller without
+  // PERMISSION_USER_MANAGE may only read its own counters.
+  rpc GetUserStats (GetUserStatsRequest) returns (UserStats) {
+    option (google.api.http) = {
+      get: "/v1/users/stats/{id}"
+    };
+  }
+}
+
+// User is the canonical representation of an account.
+message User {
+  // Application-generated UUIDv7 identifier. Read-only.
+  string id = 1;
+  // Login name. Unique among accounts. Immutable after creation.
+  string username = 2;
+  // Display name.
+  string nickname = 3;
+  // Contact address. Optional.
+  string email = 4;
+  // Avatar URL. Optional.
+  string avatar_url = 5;
+  // Coarse account category.
+  Role role = 6;
+  // Authority level. A caller may only manage accounts with a strictly lower
+  // rank. ROLE_ADMIN is pinned at 1000.
+  int32 rank = 7;
+  // Granted permissions.
+  repeated Permission permissions = 8;
+  // Bitmask form of permissions.
+  int64 permissions_mask = 9;
+  // Account lifecycle state.
+  UserStatus status = 10;
+  // Storage quota in bytes. Zero means unlimited.
+  int64 quota_bytes = 11;
+  // Storage currently consumed in bytes.
+  int64 used_bytes = 12;
+  // Number of live files owned by the account.
+  int64 file_count = 13;
+  // Number of live folders owned by the account.
+  int64 folder_count = 14;
+  // Free-form administrator note.
+  string remark = 15;
+  // Whether the account must change its password at the next login.
+  bool must_change_password = 23;
+  // Time of the last successful login. Read-only.
+  google.protobuf.Timestamp last_login_at = 16;
+  // Account that created this one. Read-only.
+  string created_by = 17;
+  // Time at which the account was created. Read-only.
+  google.protobuf.Timestamp created_at = 18;
+  // Time at which the account was last modified. Read-only.
+  google.protobuf.Timestamp updated_at = 19;
+  // Whether the calling account may manage this account. Computed per caller.
+  bool manageable = 20;
+  // Whether the calling account may change this account's permission set.
+  bool permissions_editable = 21;
+  // Inclusive upper bound the caller may assign to rank for a new account.
+  int32 max_grantable_rank = 22;
+}
+
+// UserSet is a paginated collection of accounts.
+message UserSet {
+  repeated User users = 1;
+  string next_page_token = 2;
+  // Total number of accounts matching the filter, ignoring pagination.
+  int64 total_size = 3;
+}
+
+// UserStats summarises one account's storage usage.
+message UserStats {
+  string user_id = 1;
+  string username = 2;
+  int64 quota_bytes = 3;
+  int64 used_bytes = 4;
+  int64 file_count = 5;
+  int64 folder_count = 6;
+  int64 trashed_bytes = 7;
+  int64 trashed_count = 8;
+  // Quota usage ratio in the range [0, 1]. Zero when the quota is unlimited.
+  double usage_ratio = 9;
+}
+
+// RolePresetSet is the collection of built-in permission templates.
+message RolePresetSet {
+  repeated RolePreset presets = 1;
+  // Exclusive upper bound the caller may assign to rank.
+  int32 max_grantable_rank = 2;
+  // Rank of the calling account.
+  int32 caller_rank = 3;
+}
+
+// PermissionCatalog is the collection of permissions for client rendering.
+message PermissionCatalog {
+  repeated PermissionInfo permissions = 1;
+  // Permission set the calling account currently holds.
+  repeated Permission granted = 2;
+  // Bitmask form of granted.
+  int64 granted_mask = 3;
+}
+
+// CreateUserRequest is the input for UserService.CreateUser.
+message CreateUserRequest {
+  // Account to create. id, used_bytes, created_at and updated_at are ignored.
+  User user = 1 [(google.api.field_behavior) = REQUIRED];
+  // RSA-OAEP(SHA-256) encrypted, base64 encoded initial password.
+  string password = 2 [(google.api.field_behavior) = REQUIRED];
+  // Force a password change at first login.
+  bool must_change_password = 3;
+}
+
+// GetUserRequest is the input for UserService.GetUser.
+message GetUserRequest {
+  // Account id. The literal value "me" resolves to the calling account.
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// ListUsersRequest is the input for UserService.ListUsers.
+message ListUsersRequest {
+  // Optional. Maximum number of accounts to return. Defaults to 20, capped at
+  // 200.
+  int32 page_size = 1;
+  // Optional. Token from a previous response's next_page_token.
+  string page_token = 2;
+  // Optional. The standard list filter.
+  // Supported fields:
+  //    * `username` (i.e. `username:"alice"`)
+  //    * `nickname`
+  //    * `email`
+  //    * `role` (i.e. `role=2`)
+  //    * `status` (i.e. `status=1`)
+  //    * `rank` (i.e. `rank<500`)
+  //    * `created_at` range
+  //    * `last_login_at` range
+  string filter = 3;
+  // Optional. Comma-separated ordering fields.
+  // Supported fields: `username`, `nickname`, `role`, `rank`, `status`,
+  // `used_bytes`, `created_at`, `updated_at`, `last_login_at`.
+  string order_by = 4;
+  // Optional. Include accounts with USER_STATUS_DELETED.
+  bool include_deleted = 5;
+}
+
+// UpdateUserRequest is the input for UserService.UpdateUser.
+message UpdateUserRequest {
+  // Account carrying the new values. user.id identifies the target.
+  User user = 1 [(google.api.field_behavior) = REQUIRED];
+  // Field paths to overwrite. Supported paths: `nickname`, `email`,
+  // `avatar_url`, `remark`, `role`, `rank`, `permissions_mask`, `status`,
+  // `quota_bytes`.
+  google.protobuf.FieldMask update_mask = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+// DeleteUserRequest is the input for UserService.DeleteUser.
+message DeleteUserRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+  // Move the account's nodes to the trash instead of leaving them in place.
+  bool trash_nodes = 2;
+}
+
+// SetUserPermissionsRequest is the input for UserService.SetUserPermissions.
+message SetUserPermissionsRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+  // Complete replacement permission set.
+  repeated Permission permissions = 2;
+  // Bitmask alternative to permissions. Used when permissions is empty and the
+  // mask is non-zero.
+  int64 permissions_mask = 3;
+}
+
+// ResetUserPasswordRequest is the input for UserService.ResetUserPassword.
+message ResetUserPasswordRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+  // RSA-OAEP(SHA-256) encrypted, base64 encoded new password.
+  string password = 2 [(google.api.field_behavior) = REQUIRED];
+  // Force a password change at next login.
+  bool must_change_password = 3;
+}
+
+// ListRolePresetsRequest is the input for UserService.ListRolePresets.
+message ListRolePresetsRequest {}
+
+// ListPermissionCatalogRequest is the input for
+// UserService.ListPermissionCatalog.
+message ListPermissionCatalogRequest {}
+
+// GetUserStatsRequest is the input for UserService.GetUserStats.
+message GetUserStatsRequest {
+  // Account id. The literal value "me" resolves to the calling account.
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}

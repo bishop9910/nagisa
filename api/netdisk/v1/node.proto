@@ -1,0 +1,634 @@
+syntax = "proto3";
+
+package netdisk.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+import "netdisk/v1/common.proto";
+
+option go_package = "nagisa/api/netdisk/v1;v1";
+option java_multiple_files = true;
+option java_package = "io.nagisa.netdisk.v1";
+option java_outer_classname = "NodeProto";
+option objc_class_prefix = "APINetdiskV1";
+
+// NodeService manages the file tree. Folders are modelled as nodes of kind
+// NODE_KIND_FOLDER, so description, ACL, visibility and password protection
+// apply to files and folders alike.
+//
+// Access to a node is decided in this order:
+//   1. the caller must hold PERMISSION_VIEW (or the permission matching the
+//      operation) in its account permission set;
+//   2. the owner of a node always holds every permission on it;
+//   3. an explicit DENY entry on the node or any ancestor wins immediately;
+//   4. an explicit ALLOW entry on the node or an inheriting ancestor grants
+//      the permission;
+//   5. VISIBILITY_PUBLIC grants read access to anybody, VISIBILITY_INTERNAL
+//      grants read access to any authenticated caller, VISIBILITY_PRIVATE
+//      grants nothing beyond the rules above.
+//   6. a password protected folder additionally requires a node unlock token
+//      obtained from UnlockNode, sent in the X-Node-Token header.
+service NodeService {
+  // ListNodes returns the children of a folder, or the root listing when
+  // parent_id is empty. Set recursive to walk the whole subtree.
+  rpc ListNodes (ListNodesRequest) returns (NodeSet) {
+    option (google.api.http) = {
+      get: "/v1/nodes/list"
+    };
+  }
+
+  // SearchNodes performs a tree-wide search over names and descriptions.
+  rpc SearchNodes (SearchNodesRequest) returns (NodeSet) {
+    option (google.api.http) = {
+      get: "/v1/nodes/search"
+    };
+  }
+
+  // GetNodeTree returns a folder subtree expanded to the requested depth in a
+  // single round trip.
+  rpc GetNodeTree (GetNodeTreeRequest) returns (NodeTree) {
+    option (google.api.http) = {
+      get: "/v1/nodes/tree"
+    };
+  }
+
+  // ListTrash returns the trashed nodes visible to the caller.
+  rpc ListTrash (ListTrashRequest) returns (NodeSet) {
+    option (google.api.http) = {
+      get: "/v1/nodes/trash/list"
+    };
+  }
+
+  // GetNode returns a single node by id.
+  rpc GetNode (GetNodeRequest) returns (Node) {
+    option (google.api.http) = {
+      get: "/v1/nodes/{id}"
+    };
+  }
+
+  // GetNodePath returns the breadcrumb from the root to the node.
+  rpc GetNodePath (GetNodePathRequest) returns (NodePath) {
+    option (google.api.http) = {
+      get: "/v1/nodes/{id}/path"
+    };
+  }
+
+  // GetNodeStats returns aggregate counters for the node subtree.
+  rpc GetNodeStats (GetNodeStatsRequest) returns (NodeStats) {
+    option (google.api.http) = {
+      get: "/v1/nodes/{id}/stats"
+    };
+  }
+
+  // GetNodeAcl returns the ACL entries attached to a node together with the
+  // entries inherited from ancestors and the caller's effective permissions.
+  rpc GetNodeAcl (GetNodeAclRequest) returns (NodeAcl) {
+    option (google.api.http) = {
+      get: "/v1/nodes/{id}/acl"
+    };
+  }
+
+  // CreateFolder creates a folder. The folder may carry a description, a
+  // visibility, a password and, through SetNodeAcl, an allow/deny list.
+  rpc CreateFolder (CreateFolderRequest) returns (Node) {
+    option (google.api.http) = {
+      post: "/v1/nodes/folders/create"
+      body: "*"
+    };
+  }
+
+  // UpdateNode applies a partial update to a node. Supported paths: `name`,
+  // `description`, `visibility`, `metadata`, `password`, `remove_password`,
+  // `parent_id`. Renaming or moving requires PERMISSION_EDIT on the node.
+  rpc UpdateNode (UpdateNodeRequest) returns (Node) {
+    option (google.api.http) = {
+      put: "/v1/nodes/update"
+      body: "*"
+    };
+  }
+
+  // SetNodeAcl replaces the complete ACL of a node. Requires
+  // PERMISSION_ACL_MANAGE on the node.
+  rpc SetNodeAcl (SetNodeAclRequest) returns (NodeAcl) {
+    option (google.api.http) = {
+      post: "/v1/nodes/{node_id}/acl"
+      body: "*"
+    };
+  }
+
+  // UnlockNode exchanges a folder password for a short-lived node token that
+  // the client sends in the X-Node-Token header to reach the folder and its
+  // descendants. The password must be RSA-OAEP(SHA-256) encrypted and base64
+  // encoded, exactly like an account password.
+  rpc UnlockNode (UnlockNodeRequest) returns (NodeUnlock) {
+    option (google.api.http) = {
+      post: "/v1/nodes/{node_id}/unlock"
+      body: "*"
+    };
+  }
+
+  // MoveNodes moves nodes to another folder in one transaction. The operation
+  // is all-or-nothing: a single rejected node rolls the whole batch back.
+  rpc MoveNodes (MoveNodesRequest) returns (NodeSet) {
+    option (google.api.http) = {
+      post: "/v1/nodes/move"
+      body: "*"
+    };
+  }
+
+  // CopyNodes copies nodes, including folder subtrees, into another folder.
+  rpc CopyNodes (CopyNodesRequest) returns (NodeSet) {
+    option (google.api.http) = {
+      post: "/v1/nodes/copy"
+      body: "*"
+    };
+  }
+
+  // DeleteNodes moves nodes to the trash. The rows and the stored objects are
+  // retained until PurgeNodes or EmptyTrash.
+  rpc DeleteNodes (DeleteNodesRequest) returns (DeleteNodesReply) {
+    option (google.api.http) = {
+      post: "/v1/nodes/delete"
+      body: "*"
+    };
+  }
+
+  // RestoreNodes restores nodes from the trash.
+  rpc RestoreNodes (RestoreNodesRequest) returns (NodeSet) {
+    option (google.api.http) = {
+      post: "/v1/nodes/trash/restore"
+      body: "*"
+    };
+  }
+
+  // PurgeNodes permanently deletes nodes and their stored objects. Requires
+  // PERMISSION_TRASH_MANAGE.
+  rpc PurgeNodes (PurgeNodesRequest) returns (PurgeNodesReply) {
+    option (google.api.http) = {
+      post: "/v1/nodes/trash/purge"
+      body: "*"
+    };
+  }
+
+  // EmptyTrash purges every trashed node visible to the caller.
+  rpc EmptyTrash (EmptyTrashRequest) returns (PurgeNodesReply) {
+    option (google.api.http) = {
+      post: "/v1/nodes/trash/empty"
+      body: "*"
+    };
+  }
+
+  // ListNodeVersions returns the content history of a file node.
+  rpc ListNodeVersions (ListNodeVersionsRequest) returns (NodeVersionSet) {
+    option (google.api.http) = {
+      get: "/v1/nodes/{node_id}/versions/list"
+    };
+  }
+
+  // RestoreNodeVersion promotes an older version to be the current content.
+  rpc RestoreNodeVersion (RestoreNodeVersionRequest) returns (Node) {
+    option (google.api.http) = {
+      post: "/v1/nodes/versions/restore"
+      body: "*"
+    };
+  }
+
+  // DeleteNodeVersion drops one version and reclaims its stored object.
+  rpc DeleteNodeVersion (DeleteNodeVersionRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/v1/nodes/{node_id}/versions/{version_id}"
+    };
+  }
+}
+
+// Node is the canonical representation of a file or folder.
+message Node {
+  // Application-generated UUIDv7 identifier. Read-only.
+  string id = 1;
+  // Identifier of the containing folder. Empty for a root level node.
+  string parent_id = 2;
+  // Entry name, unique among the live children of the parent folder.
+  string name = 3;
+  // Folder or file.
+  NodeKind kind = 4;
+  // Account that owns the node.
+  string owner_id = 5;
+  // Display name of the owner.
+  string owner_name = 6;
+  // Size in bytes. Always zero for folders.
+  int64 size = 7;
+  // Detected content type. Empty for folders.
+  string mime_type = 8;
+  // Lower-case file extension without the dot. Empty for folders.
+  string extension = 9;
+  // Object digest recorded at upload completion.
+  string etag = 10;
+  // Lifecycle state.
+  NodeStatus status = 11;
+  // Free-form description. Folders store their purpose here.
+  string description = 12;
+  // Coarse access policy evaluated before the ACL.
+  Visibility visibility = 13;
+  // Whether a folder password is set.
+  bool password_protected = 14;
+  // Optional hint shown to callers that have not unlocked the node.
+  string password_hint = 15;
+  // Whether the caller still has to unlock the node.
+  bool locked = 16;
+  // Whether a preview thumbnail has been generated.
+  bool has_thumbnail = 17;
+  // Application defined key/value pairs.
+  map<string, string> metadata = 18;
+  // Materialised ancestor path made of node ids, for example "/a/b/".
+  string path = 19;
+  // Human readable absolute path, for example "/文档/2024/报告.pdf".
+  string display_path = 20;
+  // Depth below the root. Zero for a root level node.
+  int32 depth = 21;
+  // Number of direct children. Folders only.
+  int64 child_count = 22;
+  // Number of files in the subtree, including this node when it is a file.
+  int64 file_count = 23;
+  // Number of folders in the subtree.
+  int64 folder_count = 24;
+  // Total bytes in the subtree.
+  int64 subtree_size = 25;
+  // Permissions the calling account holds on this node.
+  repeated Permission effective_permissions = 26;
+  // Bitmask form of effective_permissions.
+  int64 effective_permissions_mask = 27;
+  // Whether the caller owns the node.
+  bool owned = 28;
+  // Whether at least one active share link points at the node.
+  bool shared = 29;
+  // Number of active share links.
+  int32 share_count = 30;
+  // Number of retained content versions.
+  int32 version_count = 31;
+  // Identifier of the current content version. Empty for folders.
+  string current_version_id = 32;
+  // Time at which the node was created. Read-only.
+  google.protobuf.Timestamp created_at = 33;
+  // Time at which the node was last modified. Read-only.
+  google.protobuf.Timestamp updated_at = 34;
+  // Account that created the node. Read-only.
+  string created_by = 35;
+  // Account that last modified the node. Read-only.
+  string updated_by = 36;
+  // Time at which the node was moved to the trash. Read-only.
+  google.protobuf.Timestamp trashed_at = 37;
+  // Folder the node was trashed from, used by RestoreNodes. Read-only.
+  string original_parent_id = 38;
+}
+
+// NodeSet is a paginated collection of nodes.
+message NodeSet {
+  repeated Node nodes = 1;
+  string next_page_token = 2;
+  // Total number of nodes matching the filter, ignoring pagination.
+  int64 total_size = 3;
+  // Aggregate size of the returned page.
+  int64 total_bytes = 4;
+}
+
+// NodeTree is a folder with its expanded descendants.
+message NodeTree {
+  Node node = 1;
+  repeated NodeTree children = 2;
+}
+
+// NodePath is the breadcrumb of a node.
+message NodePath {
+  // Ancestors ordered from the root down to, but excluding, the node.
+  repeated Node ancestors = 1;
+  // The node itself.
+  Node node = 2;
+  // Human readable absolute path.
+  string display_path = 3;
+}
+
+// NodeStats summarises a subtree.
+message NodeStats {
+  string node_id = 1;
+  int64 file_count = 2;
+  int64 folder_count = 3;
+  int64 total_size = 4;
+  int64 trashed_count = 5;
+  int64 trashed_size = 6;
+  // Size of the largest file in the subtree.
+  int64 largest_file_size = 7;
+  // Name of the largest file in the subtree.
+  string largest_file_name = 8;
+  // Bytes per mime type family, for example {"image": 1024}.
+  map<string, int64> size_by_category = 9;
+}
+
+// NodeAcl is the access control list of a node.
+message NodeAcl {
+  string node_id = 1;
+  // Entries stored directly on the node.
+  repeated AclEntry entries = 2;
+  // Entries inherited from ancestors.
+  repeated AclEntry inherited_entries = 3;
+  // Effective permissions of the calling account on the node.
+  repeated Permission effective_permissions = 4;
+  // Bitmask form of effective_permissions.
+  int64 effective_permissions_mask = 5;
+  // Whether the calling account owns the node.
+  bool owned = 6;
+  // Whether the calling account may change the ACL.
+  bool editable = 7;
+}
+
+// NodeUnlock is the reply of a successful UnlockNode call.
+message NodeUnlock {
+  string node_id = 1;
+  // Signed token to send in the X-Node-Token header.
+  string unlock_token = 2;
+  // Lifetime of the token in seconds.
+  int32 expires_in = 3;
+  google.protobuf.Timestamp expires_at = 4;
+}
+
+// NodeVersion is one retained content revision of a file node.
+message NodeVersion {
+  string id = 1;
+  string node_id = 2;
+  // Monotonically increasing revision number within the node.
+  int32 version = 3;
+  int64 size = 4;
+  string mime_type = 5;
+  string etag = 6;
+  // Optional note describing why the revision was kept.
+  string comment = 7;
+  // Whether this revision is the current content.
+  bool current = 8;
+  string created_by = 9;
+  google.protobuf.Timestamp created_at = 10;
+}
+
+// NodeVersionSet is a collection of node versions.
+message NodeVersionSet {
+  repeated NodeVersion versions = 1;
+  string next_page_token = 2;
+}
+
+// ListNodesRequest is the input for NodeService.ListNodes.
+message ListNodesRequest {
+  // Folder to list. Empty lists the root level.
+  string parent_id = 1;
+  // Optional. Maximum number of nodes to return. Defaults to 20, capped at
+  // 1000.
+  int32 page_size = 2;
+  // Optional. Token from a previous response's next_page_token.
+  string page_token = 3;
+  // Optional. The standard list filter.
+  // Supported fields:
+  //    * `name` (i.e. `name:"report"`)
+  //    * `kind` (i.e. `kind=2`)
+  //    * `mime_type` (i.e. `mime_type:"image/"` prefix match with `:`)
+  //    * `extension`
+  //    * `size` (i.e. `size>1048576`)
+  //    * `owner_id`
+  //    * `status` (i.e. `status=1`)
+  //    * `created_at` and `updated_at` ranges
+  string filter = 4;
+  // Optional. Comma-separated ordering fields, in the AIP syntax where a
+  // descending field is written with a `desc` suffix (`order_by=size desc,name`).
+  // Folders are always listed before files.
+  // Supported fields: `name`, `size`, `kind`, `mime_type`, `extension`,
+  // `created_at`, `updated_at`.
+  string order_by = 5;
+  // Walk the whole subtree instead of a single level.
+  bool recursive = 6;
+  // Maximum depth to descend when recursive is set. Zero means unlimited.
+  int32 max_depth = 7;
+  // Include trashed children. Requires PERMISSION_TRASH_MANAGE.
+  bool include_trashed = 8;
+}
+
+// SearchNodesRequest is the input for NodeService.SearchNodes.
+message SearchNodesRequest {
+  // Substring matched against the name, case-insensitively. Empty matches
+  // everything.
+  string query = 1;
+  // Optional. Restrict the search to a subtree. Empty searches the whole tree
+  // visible to the caller.
+  string scope_node_id = 2;
+  // Optional. Restrict to a node kind.
+  NodeKind kind = 3;
+  // Optional. Restrict to a mime type prefix, for example "image/".
+  string mime_type = 4;
+  // Optional. Restrict to an owner account id.
+  string owner_id = 5;
+  // Optional. Minimum size in bytes, inclusive.
+  int64 min_size = 6;
+  // Optional. Maximum size in bytes, inclusive. Zero means unlimited.
+  int64 max_size = 7;
+  // Optional. Only return nodes modified at or after this time.
+  google.protobuf.Timestamp updated_after = 8;
+  // Optional. Only return nodes modified at or before this time.
+  google.protobuf.Timestamp updated_before = 9;
+  // Match the query against the description instead of the name.
+  bool match_description = 10;
+  // Optional. Maximum number of nodes to return. Defaults to 20, capped at
+  // 1000.
+  int32 page_size = 11;
+  // Optional. Token from a previous response's next_page_token.
+  string page_token = 12;
+  // Optional. Comma-separated ordering fields, in the AIP syntax where a
+  // descending field is written with a `desc` suffix (`order_by=updated_at desc`).
+  // Supported fields: `name`, `size`, `updated_at`, `created_at`, `relevance`.
+  string order_by = 13;
+}
+
+// GetNodeTreeRequest is the input for NodeService.GetNodeTree.
+message GetNodeTreeRequest {
+  // Folder to expand. Empty expands the caller's root level.
+  string root_id = 1;
+  // Maximum depth to descend. Defaults to 1.
+  int32 depth = 2;
+  // Maximum number of children returned per folder. Defaults to 200.
+  int32 page_size = 3;
+  // Optional. The standard list filter, applied at every level. Same syntax as
+  // ListNodesRequest.filter.
+  string filter = 4;
+}
+
+// ListTrashRequest is the input for NodeService.ListTrash.
+message ListTrashRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+  // Optional. The standard list filter, same syntax as
+  // ListNodesRequest.filter plus `trashed_at` ranges.
+  string filter = 3;
+  // Optional. Comma-separated ordering fields. Supported fields: `name`,
+  // `size`, `trashed_at`, `updated_at`.
+  string order_by = 4;
+  // Optional. Restrict the listing to nodes trashed from this folder.
+  string original_parent_id = 5;
+}
+
+// GetNodeRequest is the input for NodeService.GetNode.
+message GetNodeRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// GetNodePathRequest is the input for NodeService.GetNodePath.
+message GetNodePathRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// GetNodeStatsRequest is the input for NodeService.GetNodeStats.
+message GetNodeStatsRequest {
+  // Node to summarise. Empty summarises the caller's whole tree.
+  string id = 1;
+}
+
+// GetNodeAclRequest is the input for NodeService.GetNodeAcl.
+message GetNodeAclRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// CreateFolderRequest is the input for NodeService.CreateFolder.
+message CreateFolderRequest {
+  // Folder to create. Only name, parent_id, description, visibility,
+  // password, password_hint and metadata are read.
+  Node folder = 1 [(google.api.field_behavior) = REQUIRED];
+  // Behaviour when a sibling with the same name exists. Defaults to FAIL.
+  ConflictPolicy conflict_policy = 2;
+  // RSA-OAEP(SHA-256) encrypted, base64 encoded folder password. Set to
+  // protect the folder.
+  string password = 3;
+  // ACL applied to the new folder in the same transaction. A failing entry
+  // aborts the creation.
+  repeated AclEntry acl = 4;
+}
+
+// UpdateNodeRequest is the input for NodeService.UpdateNode.
+message UpdateNodeRequest {
+  // Node carrying the new values. node.id identifies the target.
+  Node node = 1 [(google.api.field_behavior) = REQUIRED];
+  // Field paths to overwrite. Supported paths: `name`, `description`,
+  // `visibility`, `metadata`, `parent_id`.
+  google.protobuf.FieldMask update_mask = 2 [(google.api.field_behavior) = REQUIRED];
+  // RSA-OAEP(SHA-256) encrypted, base64 encoded new password. Setting it
+  // requires the `password` path in update_mask.
+  string password = 3;
+  // Remove the folder password. Takes effect when `password` is listed in
+  // update_mask.
+  bool remove_password = 4;
+  // Behaviour when renaming onto an existing sibling name. Defaults to FAIL.
+  ConflictPolicy conflict_policy = 5;
+}
+
+// SetNodeAclRequest is the input for NodeService.SetNodeAcl.
+message SetNodeAclRequest {
+  string node_id = 1 [(google.api.field_behavior) = REQUIRED];
+  // Complete replacement set of entries. An empty list clears the ACL.
+  repeated AclEntry entries = 2;
+  // Apply the same entries to every descendant that does not override them.
+  bool recursive = 3;
+}
+
+// UnlockNodeRequest is the input for NodeService.UnlockNode.
+message UnlockNodeRequest {
+  string node_id = 1 [(google.api.field_behavior) = REQUIRED];
+  // RSA-OAEP(SHA-256) encrypted, base64 encoded folder password.
+  string password = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+// MoveNodesRequest is the input for NodeService.MoveNodes.
+message MoveNodesRequest {
+  // Nodes to move.
+  repeated string ids = 1 [(google.api.field_behavior) = REQUIRED];
+  // Destination folder. Empty moves the nodes to the caller's root level.
+  string target_parent_id = 2;
+  // Behaviour when the destination already holds a node with the same name.
+  // Defaults to FAIL.
+  ConflictPolicy conflict_policy = 3;
+  // Optional. Rename a node during the move. Must have the same length as ids
+  // when set.
+  repeated string new_names = 4;
+}
+
+// CopyNodesRequest is the input for NodeService.CopyNodes.
+message CopyNodesRequest {
+  // Nodes to copy.
+  repeated string ids = 1 [(google.api.field_behavior) = REQUIRED];
+  // Destination folder. Empty copies the nodes to the caller's root level.
+  string target_parent_id = 2;
+  ConflictPolicy conflict_policy = 3;
+  // Optional. Rename a node during the copy. Must have the same length as ids
+  // when set.
+  repeated string new_names = 4;
+}
+
+// DeleteNodesRequest is the input for NodeService.DeleteNodes.
+message DeleteNodesRequest {
+  // Nodes to delete.
+  repeated string ids = 1 [(google.api.field_behavior) = REQUIRED];
+  // Skip the trash and delete permanently. Requires
+  // PERMISSION_TRASH_MANAGE.
+  bool permanent = 2;
+}
+
+// DeleteNodesReply reports the outcome of a delete batch.
+message DeleteNodesReply {
+  // Nodes that were moved to the trash or purged.
+  repeated string deleted_ids = 1;
+  // Number of nodes affected, including descendants.
+  int64 affected_count = 2;
+  // Bytes reclaimed. Only non-zero for permanent deletes.
+  int64 reclaimed_bytes = 3;
+}
+
+// RestoreNodesRequest is the input for NodeService.RestoreNodes.
+message RestoreNodesRequest {
+  // Trashed nodes to restore.
+  repeated string ids = 1 [(google.api.field_behavior) = REQUIRED];
+  // Destination folder override. Empty restores to original_parent_id.
+  string target_parent_id = 2;
+  ConflictPolicy conflict_policy = 3;
+}
+
+// PurgeNodesRequest is the input for NodeService.PurgeNodes.
+message PurgeNodesRequest {
+  // Trashed nodes to delete permanently.
+  repeated string ids = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+// PurgeNodesReply reports the outcome of a purge batch.
+message PurgeNodesReply {
+  repeated string purged_ids = 1;
+  int64 affected_count = 2;
+  int64 reclaimed_bytes = 3;
+}
+
+// EmptyTrashRequest is the input for NodeService.EmptyTrash.
+message EmptyTrashRequest {
+  // Optional. Only empty the trash entries older than this time.
+  google.protobuf.Timestamp trashed_before = 1;
+}
+
+// ListNodeVersionsRequest is the input for NodeService.ListNodeVersions.
+message ListNodeVersionsRequest {
+  string node_id = 1 [(google.api.field_behavior) = REQUIRED];
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+// RestoreNodeVersionRequest is the input for NodeService.RestoreNodeVersion.
+message RestoreNodeVersionRequest {
+  string node_id = 1 [(google.api.field_behavior) = REQUIRED];
+  string version_id = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+// DeleteNodeVersionRequest is the input for NodeService.DeleteNodeVersion.
+message DeleteNodeVersionRequest {
+  string node_id = 1 [(google.api.field_behavior) = REQUIRED];
+  string version_id = 2 [(google.api.field_behavior) = REQUIRED];
+}

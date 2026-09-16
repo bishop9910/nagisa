@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nagisa 网盘 API</title>
+<link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+<style>body{margin:0}#swagger-ui{min-height:100vh}</style>
+</head>
+<body>
+<div id="swagger-ui"></div>
+<script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js" crossorigin></script>
+<script>
+window.onload = function () {
+  window.ui = SwaggerUIBundle({
+    url: './openapi.yaml',
+    dom_id: '#swagger-ui',
+    deepLinking: true,
+    displayRequestDuration: true,
+    persistAuthorization: true,
+    docExpansion: 'list',
+    defaultModelsExpandDepth: 1,
+    tryItOutEnabled: true
+  });
+};
+</script>
+<p style="font:14px system-ui;padding:16px 24px;color:#666">
+  OpenAPI 文档：<a href="./openapi.yaml">openapi.yaml</a> ·
+  <a href="./swagger.yaml">swagger.yaml</a> ·
+  <a href="./openapi.json">openapi.json</a>
+</p>
+</body>
+</html>

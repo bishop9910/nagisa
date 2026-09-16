@@ -1,0 +1,239 @@
+syntax = "proto3";
+
+package netdisk.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "nagisa/api/netdisk/v1;v1";
+option java_multiple_files = true;
+option java_package = "io.nagisa.netdisk.v1";
+option java_outer_classname = "CommonProto";
+option objc_class_prefix = "APINetdiskV1";
+
+// Role is the coarse account category. It selects the default permission
+// template and the display label; effective authority is decided by
+// Account.rank, so a promoted manager can outrank another manager.
+enum Role {
+  ROLE_UNSPECIFIED = 0;
+  // Built-in super administrator. Rank 1000, never manageable by anybody else.
+  ROLE_ADMIN = 1;
+  // Administrator promoted by a higher-ranked account. Rank is assigned at
+  // creation time and must stay below the creator's rank.
+  ROLE_MANAGER = 2;
+  // Regular account. Cannot manage other accounts.
+  ROLE_USER = 3;
+  // Read-only visitor account.
+  ROLE_GUEST = 4;
+}
+
+// UserStatus is the account lifecycle state.
+enum UserStatus {
+  USER_STATUS_UNSPECIFIED = 0;
+  // The account can authenticate.
+  USER_STATUS_ACTIVE = 1;
+  // The account is retained but cannot authenticate.
+  USER_STATUS_DISABLED = 2;
+  // The account is soft deleted and hidden from listings.
+  USER_STATUS_DELETED = 3;
+}
+
+// Permission is a single capability. The numeric value is the bit index plus
+// one, and the wire/storage form is the bitmask `1 << (value - 1)` exposed by
+// the `permissions_mask` fields.
+enum Permission {
+  PERMISSION_UNSPECIFIED = 0;
+  // Browse folders, read metadata.
+  PERMISSION_VIEW = 1;
+  // Download original content and previews.
+  PERMISSION_DOWNLOAD = 2;
+  // Upload new files and create folders.
+  PERMISSION_UPLOAD = 3;
+  // Rename, move, retag and edit metadata.
+  PERMISSION_EDIT = 4;
+  // Move nodes to the trash.
+  PERMISSION_DELETE = 5;
+  // Restore from the trash and permanently purge.
+  PERMISSION_TRASH_MANAGE = 6;
+  // Create and manage share links.
+  PERMISSION_SHARE = 7;
+  // Change a folder description, ACL, visibility and password.
+  PERMISSION_ACL_MANAGE = 8;
+  // Create, modify, disable and delete accounts, and assign their permissions.
+  PERMISSION_USER_MANAGE = 9;
+  // Read the audit trail.
+  PERMISSION_AUDIT_READ = 10;
+  // Read global storage statistics and run maintenance jobs.
+  PERMISSION_STORAGE_MANAGE = 11;
+  // Change system-wide settings.
+  PERMISSION_SYSTEM_MANAGE = 12;
+}
+
+// NodeKind distinguishes folders from files. Folders are stored as nodes too,
+// so a single tree, ACL and permission model covers both.
+enum NodeKind {
+  NODE_KIND_UNSPECIFIED = 0;
+  NODE_KIND_FOLDER = 1;
+  NODE_KIND_FILE = 2;
+}
+
+// NodeStatus is the node lifecycle state. Deletion moves a node to the trash
+// rather than removing the row.
+enum NodeStatus {
+  NODE_STATUS_UNSPECIFIED = 0;
+  NODE_STATUS_ACTIVE = 1;
+  NODE_STATUS_TRASHED = 2;
+}
+
+// Visibility is the coarse access policy evaluated before the ACL.
+enum Visibility {
+  VISIBILITY_UNSPECIFIED = 0;
+  // Only the owner and explicitly allowed subjects can see the node.
+  VISIBILITY_PRIVATE = 1;
+  // Any authenticated account whose permission template allows viewing can
+  // see the node.
+  VISIBILITY_INTERNAL = 2;
+  // Anyone holding the node id or a share link can read the node, including
+  // unauthenticated callers.
+  VISIBILITY_PUBLIC = 3;
+}
+
+// SubjectType selects what an ACL entry applies to.
+enum SubjectType {
+  SUBJECT_TYPE_UNSPECIFIED = 0;
+  SUBJECT_TYPE_USER = 1;
+  SUBJECT_TYPE_ROLE = 2;
+  SUBJECT_TYPE_EVERYONE = 3;
+}
+
+// Effect is the outcome of a matching ACL entry.
+enum Effect {
+  EFFECT_UNSPECIFIED = 0;
+  EFFECT_ALLOW = 1;
+  EFFECT_DENY = 2;
+}
+
+// ConflictPolicy decides what happens when a name already exists in the
+// destination folder.
+enum ConflictPolicy {
+  CONFLICT_POLICY_UNSPECIFIED = 0;
+  // Reject the operation with NETDISK_NAME_CONFLICT.
+  CONFLICT_POLICY_FAIL = 1;
+  // Keep both, appending a numeric suffix such as "report (1).pdf".
+  CONFLICT_POLICY_RENAME = 2;
+  // Replace the existing node, keeping its previous content as a version.
+  CONFLICT_POLICY_OVERWRITE = 3;
+}
+
+// UploadStatus is the multipart upload session lifecycle state.
+enum UploadStatus {
+  UPLOAD_STATUS_UNSPECIFIED = 0;
+  // Created but no part has been received yet.
+  UPLOAD_STATUS_PENDING = 1;
+  // At least one part has been received.
+  UPLOAD_STATUS_IN_PROGRESS = 2;
+  // All parts are present and the node was committed.
+  UPLOAD_STATUS_COMPLETED = 3;
+  // Cancelled by the client; staged objects are reclaimed.
+  UPLOAD_STATUS_ABORTED = 4;
+  // The session passed expires_at and is pending garbage collection.
+  UPLOAD_STATUS_EXPIRED = 5;
+}
+
+// UploadMode selects how part payloads reach the server.
+enum UploadMode {
+  UPLOAD_MODE_UNSPECIFIED = 0;
+  // The client PUTs each part straight to object storage using a presigned
+  // URL, then reports the resulting etag back to the server.
+  UPLOAD_MODE_PRESIGNED = 1;
+  // The client streams each part through the netdisk server, which forwards it
+  // to object storage. Used when object storage is not reachable directly.
+  UPLOAD_MODE_PROXY = 2;
+}
+
+// ShareStatus is the share link lifecycle state.
+enum ShareStatus {
+  SHARE_STATUS_UNSPECIFIED = 0;
+  SHARE_STATUS_ACTIVE = 1;
+  SHARE_STATUS_EXPIRED = 2;
+  SHARE_STATUS_REVOKED = 3;
+}
+
+// SignedUrl is a time limited URL that carries its own authorisation.
+message SignedUrl {
+  // Fully qualified URL to redeem.
+  string url = 1;
+  // HTTP method the URL must be redeemed with.
+  string method = 2;
+  // Expiry of the URL.
+  google.protobuf.Timestamp expires_at = 3;
+  // Lifetime in seconds.
+  int32 expires_in = 4;
+  // Headers the client must send with the request.
+  map<string, string> headers = 5;
+  // Node the URL points at.
+  string node_id = 6;
+  // Size of the payload in bytes. Zero for archives whose size is unknown in
+  // advance.
+  int64 size = 7;
+  // Suggested file name for a download.
+  string file_name = 8;
+  // Content type the payload will be served with.
+  string mime_type = 9;
+}
+
+// AclEntry grants or denies a permission set on a node for one subject.
+message AclEntry {
+  // Server-assigned identifier. Ignored on input when creating entries.
+  string id = 1;
+  // Node the entry is attached to.
+  string node_id = 2;
+  // What the entry applies to.
+  SubjectType subject_type = 3;
+  // Account id for SUBJECT_TYPE_USER, role name for SUBJECT_TYPE_ROLE, empty
+  // for SUBJECT_TYPE_EVERYONE.
+  string subject_id = 4;
+  // Display name of the subject, resolved by the server.
+  string subject_name = 5;
+  // Whether the entry allows or denies.
+  Effect effect = 6;
+  // Permissions covered by this entry.
+  repeated Permission permissions = 7;
+  // Bitmask form of permissions, useful for compact storage and comparison.
+  int64 permissions_mask = 8;
+  // Whether the entry is inherited by descendants. Deny entries always apply
+  // to the whole subtree regardless of this flag.
+  bool inherit = 9;
+  // Time at which the entry was created. Server-assigned, read-only.
+  google.protobuf.Timestamp created_at = 10;
+  // Account that created the entry. Server-assigned, read-only.
+  string created_by = 11;
+}
+
+// PermissionInfo describes one permission for client-side rendering.
+message PermissionInfo {
+  Permission permission = 1;
+  // Stable machine name, for example "upload".
+  string name = 2;
+  // Human readable Chinese label.
+  string display_name = 3;
+  // Human readable Chinese explanation.
+  string description = 4;
+  // Grouping used by settings screens, for example "content" or "system".
+  string category = 5;
+}
+
+// RolePreset is a permission template offered when creating an account.
+message RolePreset {
+  Role role = 1;
+  // Stable machine name, for example "guest".
+  string name = 2;
+  // Human readable Chinese label.
+  string display_name = 3;
+  string description = 4;
+  // Rank assigned when the creator does not override it.
+  int32 default_rank = 5;
+  // Permissions granted by the template.
+  repeated Permission permissions = 6;
+  // Bitmask form of permissions.
+  int64 permissions_mask = 7;
+}
