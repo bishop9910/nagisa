@@ -105,7 +105,7 @@ onMounted(async () => {
         <dl class="login__stats">
           <div>
             <dt>后端版本</dt>
-            <dd>v{{ system.version }}</dd>
+            <dd>{{ system.version }}</dd>
           </div>
           <div>
             <dt>对象存储</dt>
@@ -156,7 +156,6 @@ onMounted(async () => {
             <input v-model="remember" type="checkbox" />
             保持登录状态
           </label>
-          <a class="text-xs" href="/docs/" target="_blank" rel="noopener">接口文档</a>
         </div>
 
         <p v-if="error" class="login__error">

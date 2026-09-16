@@ -30,6 +30,8 @@ pnpm dev              # http://localhost:5173
 
 登录账号：内置管理员 `admin`，口令取自后端首次初始化数据库时写入的值（`auth.admin_password` 只在建库那一次生效，之后改配置不会覆盖旧口令）。
 只读访客 `guest` **不需要登录**：前端启动时调用公开的 `POST /v1/auth/guest` 直接换取只读令牌，前提是服务端 `auth.guest_auto_login: true`。
+本地躺着一对已经失效的令牌（令牌过期、服务端换过签名密钥、账号被改密或停用）时，前端也会落到同一个访客态，
+只在顶部提示一次「当前以只读访客身份浏览」——只有访客入口关着、或换取访客会话失败，才会真的跳到登录页。
 
 ## 2. 构建与部署
 
@@ -74,12 +76,12 @@ src/
 | --- | --- | --- | --- |
 | `/login` | login | 登录（公开） | — |
 | `/s/:token` | share-public | 匿名分享页（公开） | — |
-| `/files/:folderId?` | files | 我的文件 | 登录 |
-| `/search` | search | 全文搜索 | 登录 |
-| `/shares` | shares | 我的分享 | 登录 |
-| `/trash` | trash | 回收站 | 登录 |
-| `/uploads` | uploads | 传输列表 | 登录 |
-| `/account` | account | 账号设置 | 登录 |
+| `/files/:folderId?` | files | 我的文件 | 会话（账号或只读访客） |
+| `/search` | search | 全文搜索 | 会话（账号或只读访客） |
+| `/shares` | shares | 我的分享 | 会话（账号或只读访客） |
+| `/trash` | trash | 回收站 | 会话（账号或只读访客） |
+| `/uploads` | uploads | 传输列表 | 会话（账号或只读访客） |
+| `/account` | account | 账号设置 | 会话（账号或只读访客） |
 | `/manage`（别名 `/@manage`） | manage-overview | 系统概览 | 任一管理权限 |
 | `/manage/users`（`/@manage/users`） | manage-users | 账号管理 | `user_manage` |
 | `/manage/audit` | manage-audit | 审计日志 | `audit_read` |
@@ -89,6 +91,10 @@ src/
 
 管理后台同时接受 `/manage/...` 与 `/@manage/...` 两种写法（后者是别名），菜单里生成的
 链接一律是 `/manage/...`。缺少对应能力的路由会被守卫拦回概览页并给出提示。
+
+`requiresAuth` 要的是一个会话，不一定是正式账号：守卫先 `bootstrap`，没有会话时由
+`stores/auth.ts` 换成免登录的只读访客；访客态下管理后台、上传、分享这些入口由权限位
+自己挡住，守卫不需要为访客单开一条分支。
 
 ## 5. 页面与后端接口对照
 

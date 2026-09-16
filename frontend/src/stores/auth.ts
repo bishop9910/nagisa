@@ -5,7 +5,8 @@
  * http 层通过 setTokenProvider 反向依赖这里，避免两个模块互相 import。
  *
  * 免登录的访客会话也在这里：没有令牌时先问服务端是否允许访客登录，允许就换一个
- * 只读访问令牌进来，因此「打开即只读浏览」不需要用户做任何事。
+ * 只读访问令牌进来，因此「打开即只读浏览」不需要用户做任何事。本地躺着一对已经
+ * 失效的令牌时同样落到访客态（见 loseSession），只有连访客入口都关着才跳登录页。
  */
 
 import { computed, ref } from 'vue'
@@ -30,6 +31,9 @@ interface NodeTokenEntry {
   token: string
   expiresAt: number
 }
+
+/** 会话丢失后的去向：已换成只读访客，或彻底没有会话。 */
+export type SessionLossReason = 'guest-fallback' | 'expired'
 
 function readStored(): StoredSession | null {
   try {
@@ -63,13 +67,19 @@ export const useAuthStore = defineStore('auth', () => {
   const guest = ref<boolean>(stored?.guest ?? false)
   const user = ref<User | null>(null)
   const ready = ref(false)
+  /** 上一次会话是被判定失效而丢掉的，而不是用户主动退出。 */
   const sessionExpired = ref(false)
   /** 受密码保护目录的解封令牌：node_id → token。 */
   const nodeTokens = ref<Record<string, NodeTokenEntry>>({})
   /** 当前浏览路径上的祖先节点，用于挑选合适的解封令牌。 */
   const activeChain = ref<string[]>([])
 
-  let expiredHandler: (() => void) | null = null
+  let expiredHandler: ((reason: SessionLossReason) => void) | null = null
+  /**
+   * 会话代数：建立或清空会话都会 +1。失效通知常常晚到（http 层与 bootstrap 都会
+   * 收尾），比较代数就知道这期间会话有没有被换掉，避免把刚换到的会话又拆一遍。
+   */
+  let sessionGeneration = 0
 
   const isAuthenticated = computed(() => Boolean(accessToken.value))
   const isGuest = computed(() => guest.value)
@@ -108,6 +118,7 @@ export const useAuthStore = defineStore('auth', () => {
     if (payload.expiresIn) expiresAt.value = Date.now() + payload.expiresIn * 1000
     if (payload.user) user.value = payload.user
     sessionExpired.value = false
+    sessionGeneration += 1
     if (accessToken.value) {
       writeStored({
         accessToken: accessToken.value,
@@ -127,18 +138,7 @@ export const useAuthStore = defineStore('auth', () => {
     nodeTokens.value = {}
     activeChain.value = []
     writeStored(null)
-  }
-
-  /** 令牌彻底失效：清空会话并通知上层跳转登录。 */
-  function handleUnauthenticated(): void {
-    if (!accessToken.value && !refreshToken.value) return
-    clearSession()
-    sessionExpired.value = true
-    expiredHandler?.()
-  }
-
-  function setExpiredHandler(handler: (() => void) | null): void {
-    expiredHandler = handler
+    sessionGeneration += 1
   }
 
   /** 用刷新令牌换一对新令牌；http 层在 401 时会调用它。 */
@@ -174,7 +174,15 @@ export const useAuthStore = defineStore('auth', () => {
         guest: true,
         user: reply.user ?? undefined,
       })
-      if (!reply.user) await loadCurrentUser()
+      if (!reply.user) {
+        // 没有账号信息就读不到权限位，宁可当这次没换成，也不留半个会话。
+        try {
+          await loadCurrentUser()
+        } catch {
+          clearSession()
+          return false
+        }
+      }
       return true
     } catch {
       return false
@@ -189,6 +197,56 @@ export const useAuthStore = defineStore('auth', () => {
     } catch {
       return false
     }
+  }
+
+  /**
+   * 先问部署开没开访客入口，开了就换一个只读会话。
+   * 「打开网页即只读浏览」靠的就是它：本地没有会话、会话过期、令牌被服务端作废，
+   * 都从这里落到访客态，而不是被丢到登录页。
+   */
+  async function tryGuestSession(): Promise<boolean> {
+    if (!(await guestLoginEnabled())) return false
+    return enterGuestMode()
+  }
+
+  /**
+   * 当前会话作废后的统一收尾：清掉本地状态，能换访客会话就继续只读浏览，
+   * 换不到才通知上层跳登录页。
+   *
+   * `since` 是调用方发起那次失败请求前记下的会话代数：代数已经变了就说明这次失效
+   * 早就收尾过（或已经换成新会话），直接返回。已经在收尾时则等同一个流程，避免并发
+   * 重复换取。
+   */
+  let losing: Promise<void> | null = null
+
+  async function loseSession(retryGuest = true, since?: number): Promise<void> {
+    if (losing) return losing
+    if (since !== undefined && since !== sessionGeneration) return
+    losing = (async () => {
+      clearSession()
+      sessionExpired.value = true
+      if (retryGuest && (await tryGuestSession())) {
+        expiredHandler?.('guest-fallback')
+        return
+      }
+      expiredHandler?.('expired')
+    })()
+    try {
+      await losing
+    } finally {
+      losing = null
+    }
+  }
+
+  /** 令牌彻底失效：先尝试降级为只读访客，连访客都进不去才通知上层跳登录页。 */
+  function handleUnauthenticated(): void {
+    if (!accessToken.value && !refreshToken.value) return
+    // 访客会话刚刚被服务端拒绝过（续期走的就是重新换取），再试一次没有意义。
+    void loseSession(!guest.value)
+  }
+
+  function setExpiredHandler(handler: ((reason: SessionLossReason) => void) | null): void {
+    expiredHandler = handler
   }
 
   /* ---------- 解封令牌 ---------- */
@@ -240,26 +298,28 @@ export const useAuthStore = defineStore('auth', () => {
     bootstrapped = (async () => {
       if (!isAuthenticated.value) {
         // 没有会话时先尝试免登录的访客身份：这就是「打开即只读浏览」。
-        if (await guestLoginEnabled()) await enterGuestMode()
+        await tryGuestSession()
         ready.value = true
         return
       }
       // 到期前 30 秒就主动续期，避免请求正好撞上过期。
       if (expiresAt.value && expiresAt.value - Date.now() < 30_000) {
+        const before = sessionGeneration
         const renewed = await refresh()
         if (!renewed) {
-          clearSession()
-          sessionExpired.value = true
+          // 续期失败：本地这对令牌已经用不了了，落到访客态而不是登录页。
+          await loseSession(!guest.value, before)
           ready.value = true
           return
         }
       }
+      const before = sessionGeneration
       try {
         user.value = await authApi.getCurrentUser()
       } catch {
-        // 令牌在服务端已失效（例如改密、被禁用）：清掉本地状态。
-        clearSession()
-        sessionExpired.value = true
+        // 令牌在服务端已失效（改密、被禁用、服务端换了签名密钥都是这样）：
+        // 清掉本地状态，能换访客会话就继续只读浏览，而不是把人丢到登录页。
+        await loseSession(!guest.value, before)
       } finally {
         ready.value = true
       }

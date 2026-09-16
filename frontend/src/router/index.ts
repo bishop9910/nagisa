@@ -10,7 +10,7 @@ declare module 'vue-router' {
   interface RouteMeta {
     /** 浏览器标题。 */
     title?: string
-    /** 需要登录。 */
+    /** 需要一个会话：正式账号或免登录换来的只读访客都可以。 */
     requiresAuth?: boolean
     /** 需要至少一项管理类权限。 */
     requiresManage?: boolean
@@ -151,6 +151,8 @@ router.beforeEach(async (to) => {
   }
 
   const isPublic = to.meta.public === true
+  // requiresAuth 要的是一个会话，不一定是正式账号：bootstrap 在没有会话时会先换成
+  // 免登录的只读访客身份，只有连访客入口都关着（或换取失败）才真的落到登录页。
   if (!isPublic && !auth.isAuthenticated) {
     return { name: 'login', query: to.fullPath === '/' ? {} : { redirect: to.fullPath } }
   }

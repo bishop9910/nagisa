@@ -89,7 +89,7 @@ defineExpose({ loadUsage })
       <span class="sidebar__logo"><AppIcon name="cloud" :size="20" /></span>
       <span class="sidebar__brand-text">
         <strong>{{ system.name }}</strong>
-        <small>v{{ system.version }}</small>
+        <small>{{ system.version }}</small>
       </span>
     </div>
 

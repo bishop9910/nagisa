@@ -15,10 +15,30 @@ function stubApi(routes: Record<string, () => unknown>): string[] {
     if (!handler) {
       return new Response(JSON.stringify({ code: 404, reason: 'NETDISK_NOT_FOUND' }), { status: 404 })
     }
-    return new Response(JSON.stringify(handler()), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    const result = handler()
+    if (result instanceof Response) return result
+    return new Response(JSON.stringify(result), { status: 200, headers: { 'Content-Type': 'application/json' } })
   })
   vi.stubGlobal('fetch', fetchMock)
   return calls
+}
+
+/** 服务端认定令牌不可用时返回的错误信封。 */
+function unauthenticated(): Response {
+  return new Response(JSON.stringify({ code: 401, reason: 'NETDISK_UNAUTHENTICATED' }), { status: 401 })
+}
+
+/** 本地存着一对已经不作数的正式账号令牌。 */
+function storeStaleSession(): void {
+  localStorage.setItem(
+    'nagisa.session',
+    JSON.stringify({
+      accessToken: 'stale-token',
+      refreshToken: 'stale-refresh',
+      expiresAt: Date.now() + 3_600_000,
+      guest: false,
+    }),
+  )
 }
 
 const guestReply = {
@@ -107,5 +127,61 @@ describe('访客免登录', () => {
     expect(auth.isGuest).toBe(false)
     expect(auth.refreshToken).toBe('refresh-token')
     expect(auth.has('PERMISSION_USER_MANAGE')).toBe(true)
+  })
+
+  it('本地令牌已失效时落到只读访客，而不是把人丢到登录页', async () => {
+    storeStaleSession()
+    const calls = stubApi({
+      'GET /v1/auth/config': () => ({ guestLoginEnabled: true }),
+      'GET /v1/auth/me': () => unauthenticated(),
+      'POST /v1/auth/guest': () => guestReply,
+    })
+    const auth = await loadStore()
+    const reasons: string[] = []
+    auth.setExpiredHandler((reason) => reasons.push(reason))
+
+    await auth.bootstrap()
+
+    expect(auth.isAuthenticated).toBe(true)
+    expect(auth.isGuest).toBe(true)
+    expect(reasons).toEqual(['guest-fallback'])
+    // 401 与 bootstrap 都会走一次收尾，访客接口只能被换一次。
+    expect(calls.filter((call) => call === 'POST /v1/auth/guest')).toHaveLength(1)
+  })
+
+  it('访客入口关着且本地令牌已失效时才按未登录处理', async () => {
+    storeStaleSession()
+    const calls = stubApi({
+      'GET /v1/auth/config': () => ({ guestLoginEnabled: false }),
+      'GET /v1/auth/me': () => unauthenticated(),
+    })
+    const auth = await loadStore()
+    const reasons: string[] = []
+    auth.setExpiredHandler((reason) => reasons.push(reason))
+
+    await auth.bootstrap()
+
+    expect(auth.isAuthenticated).toBe(false)
+    expect(auth.isGuest).toBe(false)
+    expect(reasons).toEqual(['expired'])
+    expect(calls).not.toContain('POST /v1/auth/guest')
+  })
+
+  it('正式会话在请求中失效时降级为访客会话', async () => {
+    const calls = stubApi({
+      'GET /v1/auth/config': () => ({ guestLoginEnabled: true }),
+      'GET /v1/auth/me': () => unauthenticated(),
+      'POST /v1/auth/guest': () => guestReply,
+    })
+    const auth = await loadStore()
+    auth.setSession({ accessToken: 'dead-token', refreshToken: 'dead-refresh', expiresIn: 7200 })
+    const reasons: string[] = []
+    auth.setExpiredHandler((reason) => reasons.push(reason))
+
+    await expect(auth.loadCurrentUser()).rejects.toThrow()
+
+    await vi.waitFor(() => expect(reasons).toEqual(['guest-fallback']))
+    expect(auth.isGuest).toBe(true)
+    expect(calls).toContain('POST /v1/auth/guest')
   })
 })
