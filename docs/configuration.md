@@ -341,6 +341,7 @@ auth:
   allow_plain_password: false
   admin_password: ${ADMIN_PASSWORD:}
   guest_username: guest
+  guest_auto_login: true
   node_token_ttl: 900s
   min_password_length: 12
 storage:
