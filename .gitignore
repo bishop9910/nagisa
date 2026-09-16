@@ -35,7 +35,7 @@ Thumbs.db
 bin/
 .cache/
 data/
-web/
+web/dist
 
 
 # Develop tools
