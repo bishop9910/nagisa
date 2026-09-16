@@ -39,7 +39,7 @@ weed server -s3 -dir=/srv/seaweedfs -master.dir=/srv/seaweedfs/meta -s3.config=/
 Windows（PowerShell）等价写法，数据与凭据都放在仓库的 `data/seaweedfs`（该目录已被 `.gitignore` 忽略，不会误提交）：
 
 ```powershell
-weed server -s3 -dir=.\data\seaweedfs -master.dir=.\data\seaweedfs\meta -s3.config=.\data\seaweedfs\s3.json
+weed server -ip=127.0.0.1 -s3 -dir=.\data\seaweedfs -master.dir=.\data\seaweedfs\meta -s3.config=.\data\seaweedfs\s3.json
 ```
 
 > ⚠️ **`-dir` 不能单独给。** 元数据目录的参数是 `-master.dir`，而它**不会**从 `-dir` 继承：`server.go` 的可写性检查跑在继承逻辑之前，于是启动会直接 Fatal：
@@ -49,6 +49,14 @@ weed server -s3 -dir=.\data\seaweedfs -master.dir=.\data\seaweedfs\meta -s3.conf
 > ```
 >
 > 两个目录都要显式写出（`-master.dir` 的目录会自动创建）。完全不给 `-dir` 时它才会用系统临时目录兜底——但那样数据会随临时目录被清理，不要这么跑。
+
+> ⚠️ **建议显式指定 `-ip`。** 不给时 SeaweedFS 自己挑一个非回环网卡地址，并把它写进集群拓扑；如果那个地址来自 VPN 或虚拟网卡，网卡一消失整个进程就会开始刷下面这种日志，最后退出：
+>
+> ```
+> SendHeartbeat to <ip>:9333: ... dial tcp <ip>:0-><ip>:19333: bind: The requested address is not valid in its context.
+> ```
+>
+> 本机开发固定 `-ip=127.0.0.1`；部署到服务器时写实际的私网地址或主机名（该地址必须稳定存在）。
 
 还没有 `weed` 时，两种获取方式：从 [SeaweedFS Releases](https://github.com/seaweedfs/seaweedfs/releases) 下 `weed_windows_amd64.zip` 解压到 PATH，或直接 `go install github.com/seaweedfs/seaweedfs/weed@latest`（装到 `%GOPATH%\bin`）。
 
