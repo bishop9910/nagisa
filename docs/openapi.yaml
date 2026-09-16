@@ -90,12 +90,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/netdisk.v1.AuditLogSet'
-        "500":
-          $ref: '#/components/responses/Internal'
         "401":
           $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/Internal'
   /v1/audit/logs/{id}:
     get:
       tags:
@@ -152,12 +152,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/netdisk.v1.AuditSummary'
-        "401":
-          $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
         "500":
           $ref: '#/components/responses/Internal'
+        "401":
+          $ref: '#/components/responses/Unauthenticated'
   /v1/auth/config:
     get:
       tags:
@@ -176,10 +176,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/netdisk.v1.AuthConfig'
-        "403":
-          $ref: '#/components/responses/Forbidden'
         "500":
           $ref: '#/components/responses/Internal'
+        "403":
+          $ref: '#/components/responses/Forbidden'
       security: []
   /v1/auth/guest:
     post:
@@ -265,12 +265,12 @@ paths:
         "200":
           description: OK
           content: {}
-        "401":
-          $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
         "500":
           $ref: '#/components/responses/Internal'
+        "401":
+          $ref: '#/components/responses/Unauthenticated'
   /v1/auth/me:
     get:
       tags:
@@ -284,12 +284,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/netdisk.v1.User'
+        "401":
+          $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
         "500":
           $ref: '#/components/responses/Internal'
-        "401":
-          $ref: '#/components/responses/Unauthenticated'
   /v1/auth/password/change:
     post:
       tags:
@@ -309,12 +309,12 @@ paths:
         "200":
           description: OK
           content: {}
-        "401":
-          $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
         "500":
           $ref: '#/components/responses/Internal'
+        "401":
+          $ref: '#/components/responses/Unauthenticated'
   /v1/auth/refresh:
     post:
       tags:
@@ -396,12 +396,12 @@ paths:
         "200":
           description: OK
           content: {}
+        "500":
+          $ref: '#/components/responses/Internal'
         "401":
           $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
-        "500":
-          $ref: '#/components/responses/Internal'
   /v1/files/upload:
     post:
       tags:
@@ -476,16 +476,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/netdisk.v1.Node'
+        "409":
+          $ref: '#/components/responses/Conflict'
+        "401":
+          $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
         "500":
           $ref: '#/components/responses/Internal'
-        "409":
-          $ref: '#/components/responses/Conflict'
         "400":
           $ref: '#/components/responses/BadRequest'
-        "401":
-          $ref: '#/components/responses/Unauthenticated'
   /v1/files/uploads/create:
     post:
       tags:
@@ -508,12 +508,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/netdisk.v1.UploadSession'
-        "500":
-          $ref: '#/components/responses/Internal'
         "401":
           $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/Internal'
   /v1/files/uploads/list:
     get:
       tags:
@@ -796,14 +796,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/netdisk.v1.SignedUrl'
+        "400":
+          $ref: '#/components/responses/BadRequest'
         "401":
           $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
         "500":
           $ref: '#/components/responses/Internal'
-        "400":
-          $ref: '#/components/responses/BadRequest'
   /v1/nodes/copy:
     post:
       tags:
@@ -877,12 +877,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/netdisk.v1.Node'
-        "401":
-          $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
         "500":
           $ref: '#/components/responses/Internal'
+        "401":
+          $ref: '#/components/responses/Unauthenticated'
   /v1/nodes/list:
     get:
       tags:
@@ -1083,12 +1083,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/netdisk.v1.NodeSet'
+        "401":
+          $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
         "500":
           $ref: '#/components/responses/Internal'
-        "401":
-          $ref: '#/components/responses/Unauthenticated'
   /v1/nodes/trash/empty:
     post:
       tags:
@@ -1108,12 +1108,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/netdisk.v1.PurgeNodesReply'
-        "500":
-          $ref: '#/components/responses/Internal'
         "401":
           $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/Internal'
   /v1/nodes/trash/list:
     get:
       tags:
@@ -1254,12 +1254,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/netdisk.v1.NodeTree'
+        "401":
+          $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
         "500":
           $ref: '#/components/responses/Internal'
-        "401":
-          $ref: '#/components/responses/Unauthenticated'
   /v1/nodes/update:
     put:
       tags:
@@ -1282,12 +1282,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/netdisk.v1.Node'
+        "401":
+          $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
         "500":
           $ref: '#/components/responses/Internal'
-        "401":
-          $ref: '#/components/responses/Unauthenticated'
   /v1/nodes/versions/restore:
     post:
       tags:
@@ -1307,12 +1307,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/netdisk.v1.Node'
-        "500":
-          $ref: '#/components/responses/Internal'
         "401":
           $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/Internal'
   /v1/nodes/{id}:
     get:
       tags:
@@ -1332,12 +1332,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/netdisk.v1.Node'
-        "500":
-          $ref: '#/components/responses/Internal'
         "401":
           $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/Internal'
   /v1/nodes/{id}/acl:
     get:
       tags:
@@ -1410,12 +1410,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/netdisk.v1.NodeStats'
-        "401":
-          $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
         "500":
           $ref: '#/components/responses/Internal'
+        "401":
+          $ref: '#/components/responses/Unauthenticated'
   /v1/nodes/{nodeId}/acl:
     post:
       tags:
@@ -1443,12 +1443,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/netdisk.v1.NodeAcl'
+        "401":
+          $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
         "500":
           $ref: '#/components/responses/Internal'
-        "401":
-          $ref: '#/components/responses/Unauthenticated'
   /v1/nodes/{nodeId}/unlock:
     post:
       tags:
@@ -1602,12 +1602,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/netdisk.v1.ShareSet'
+        "500":
+          $ref: '#/components/responses/Internal'
         "401":
           $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
-        "500":
-          $ref: '#/components/responses/Internal'
   /v1/shares/children/list:
     post:
       tags:
@@ -1759,12 +1759,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/netdisk.v1.Share'
-        "500":
-          $ref: '#/components/responses/Internal'
         "401":
           $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/Internal'
   /v1/shares/{id}:
     get:
       tags:
@@ -1807,12 +1807,12 @@ paths:
         "200":
           description: OK
           content: {}
-        "401":
-          $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
         "500":
           $ref: '#/components/responses/Internal'
+        "401":
+          $ref: '#/components/responses/Unauthenticated'
   /v1/system/health:
     get:
       tags:
@@ -1885,12 +1885,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/netdisk.v1.MaintenanceReport'
-        "401":
-          $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
         "500":
           $ref: '#/components/responses/Internal'
+        "401":
+          $ref: '#/components/responses/Unauthenticated'
   /v1/system/settings/list:
     get:
       tags:
@@ -1906,12 +1906,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/netdisk.v1.SystemSettingSet'
-        "401":
-          $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
         "500":
           $ref: '#/components/responses/Internal'
+        "401":
+          $ref: '#/components/responses/Unauthenticated'
   /v1/system/settings/update:
     put:
       tags:
@@ -1933,12 +1933,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/netdisk.v1.SystemSettingSet'
+        "401":
+          $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
         "500":
           $ref: '#/components/responses/Internal'
-        "401":
-          $ref: '#/components/responses/Unauthenticated'
   /v1/system/storage/stats:
     get:
       tags:
@@ -1990,14 +1990,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/netdisk.v1.User'
-        "403":
-          $ref: '#/components/responses/Forbidden'
         "500":
           $ref: '#/components/responses/Internal'
         "409":
           $ref: '#/components/responses/Conflict'
         "401":
           $ref: '#/components/responses/Unauthenticated'
+        "403":
+          $ref: '#/components/responses/Forbidden'
   /v1/users/list:
     get:
       tags:
@@ -2106,12 +2106,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/netdisk.v1.PermissionCatalog'
+        "500":
+          $ref: '#/components/responses/Internal'
         "401":
           $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
-        "500":
-          $ref: '#/components/responses/Internal'
   /v1/users/permissions/set:
     post:
       tags:
@@ -2155,12 +2155,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/netdisk.v1.RolePresetSet'
-        "401":
-          $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
         "500":
           $ref: '#/components/responses/Internal'
+        "401":
+          $ref: '#/components/responses/Unauthenticated'
   /v1/users/stats/{id}:
     get:
       tags:
@@ -2183,12 +2183,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/netdisk.v1.UserStats'
+        "500":
+          $ref: '#/components/responses/Internal'
         "401":
           $ref: '#/components/responses/Unauthenticated'
         "403":
           $ref: '#/components/responses/Forbidden'
-        "500":
-          $ref: '#/components/responses/Internal'
   /v1/users/update:
     put:
       tags:
@@ -2336,10 +2336,10 @@ paths:
           $ref: '#/components/responses/Forbidden'
         "404":
           $ref: '#/components/responses/NotFound'
-        "401":
-          $ref: '#/components/responses/Unauthenticated'
         "500":
           $ref: '#/components/responses/Internal'
+        "401":
+          $ref: '#/components/responses/Unauthenticated'
   /v1/files/{node_id}/archive:
     get:
       tags:
@@ -2394,10 +2394,10 @@ paths:
           $ref: '#/components/responses/Forbidden'
         "404":
           $ref: '#/components/responses/NotFound'
-        "500":
-          $ref: '#/components/responses/Internal'
         "401":
           $ref: '#/components/responses/Unauthenticated'
+        "500":
+          $ref: '#/components/responses/Internal'
   /v1/files/uploads/{upload_id}/parts/{part_number}/raw:
     put:
       tags:

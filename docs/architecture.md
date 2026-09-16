@@ -264,7 +264,7 @@ tx, err := d.db.Tx(ctx)
 | `make init` | 安装 `wire@v0.7.0` 与 `buf` |
 | `make api` | `buf generate --template buf.gen.yaml`：`protoc-gen-go`、`protoc-gen-go-grpc`、`protoc-gen-go-http`、`protoc-gen-openapi`（产出 `openapi.yaml`） |
 | `make config` | `buf generate --template buf.gen.config.yaml`：`internal/conf/conf.pb.go` |
-| `make generate` | `go generate ./...` 并 `go mod tidy`。生成指令是 `internal/data/ent/generate.go` 的 `ent generate ./schema`；Wire 的注入器改用 `go run github.com/google/wire/cmd/wire@v0.7.0` 重新生成，因为 v0.6.0 无法解析 `go 1.25` 模块 |
+| `make generate` | `go generate ./...` 并 `go mod tidy`。生成指令是 `internal/data/ent/generate.go` 的 `ent generate ./schema`；Wire 的注入器改用 `go run github.com/google/wire/cmd/wire@v0.7.0` 重新生成，因为 v0.6.0 无法解析 `go 1.25` 模块；`cmd/nagisa` 用 `go run github.com/akavel/rsrc@v0.10.2` 把 `icon.ico` 打包成 `rsrc_windows_amd64.syso`，即 Windows 可执行文件的图标资源 |
 | `make docs` | `go run ./tools/openapi -in openapi.yaml -out docs`：富化 `openapi.yaml` 并输出 `docs/openapi.yaml`、`docs/swagger.yaml`、`docs/openapi.json`、`docs/index.html` |
 | `make all` | 依次执行 `api`、`config`、`generate`、`docs` |
 | `make build` | `go build -ldflags "-X main.Version=<git describe>" -o ./bin/ ./cmd/...`，产物 `bin/nagisa` |
@@ -274,7 +274,7 @@ Windows 上没有 `make` 也能完整走完这条链：`scripts/build.ps1` 与�
 
 `make docs` 必须在 `make api` 之后运行：富化工具会在文档首行留下标记，并在检测到标记时拒绝重复运行，要求先用 `make api` 从 proto 重新生成一份干净文档。
 
-`*.pb.go`、`*_grpc.pb.go`、`*_http.pb.go`、`wire_gen.go`、`internal/conf/conf.pb.go` 都是生成产物，不要手改；它们与源文件放在同一个提交里。
+`*.pb.go`、`*_grpc.pb.go`、`*_http.pb.go`、`wire_gen.go`、`internal/conf/conf.pb.go`、`cmd/nagisa/rsrc_windows_amd64.syso` 都是生成产物，不要手改；它们与源文件放在同一个提交里。`.syso` 的文件名带了 `_windows_amd64` 约束，所以 Linux 构建（含 Dockerfile）会自动忽略它。
 
 ### 7.3 测试接缝
 

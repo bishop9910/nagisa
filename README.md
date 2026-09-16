@@ -84,6 +84,8 @@ Windows（不需要安装 `make`，用仓库自带的 PowerShell 脚本）：
 
 脚本与 Makefile 的目标一一对应，另外还有 `run`、`test`、`test-integration`、`fmt`、`vet`、`tidy`、`clean`，不带参数运行会打印全部用法。若 PowerShell 执行策略拦住了脚本，用 `powershell -ExecutionPolicy Bypass -File .\scripts\build.ps1 all`，或先执行一次 `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`。
 
+`bin\nagisa.exe` 的图标来自 `cmd\nagisa\icon.ico`（16/24/32/48/64/128/256 七个尺寸，图案取自 `frontend/public/favicon.ico`），由 `cmd/nagisa` 的 `go:generate` 打成 `rsrc_windows_amd64.syso` 并随仓库提交，普通 `build` 就会带上。换图标后重新执行 `.\scripts\build.ps1 generate`（等价于 `go generate ./cmd/nagisa`）即可重建；该 `.syso` 只对 Windows 生效，Linux 与容器构建照旧。
+
 两套入口做的事完全一样，都会重新生成 `*.pb.go`、`*_http.pb.go`、`internal/conf/conf.pb.go`、`wire_gen.go`、`openapi.yaml`，并由 `tools/openapi` 富化文档、把副本发布到 `docs/`。这些文件不要手改。生成命令的完整说明见 [`docs/architecture.md`](docs/architecture.md#72-生成命令)。
 
 > 生成链需要 `buf`。若它不在 PATH 上，脚本会自动到 `%GOPATH%\bin` 里找；`init` 会把 `buf` 与 `wire` 装到那里。注意 `wire` 用 `go run github.com/google/wire/cmd/wire@v0.7.0` 调用，因为 v0.6.0 无法解析 `go 1.25` 的模块。

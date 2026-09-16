@@ -22,6 +22,12 @@ import (
 	_ "go.uber.org/automaxprocs"
 )
 
+// The Windows shell icon is linked from a resource object built out of
+// icon.ico. The object is committed, so an ordinary build already carries the
+// icon; rerun this only after replacing icon.ico.
+//
+//go:generate go run github.com/akavel/rsrc@v0.10.2 -ico icon.ico -o rsrc_windows_amd64.syso -arch amd64
+
 // go build -ldflags "-X main.Version=x.y.z"
 var (
 	// Name is the name of the compiled software.
