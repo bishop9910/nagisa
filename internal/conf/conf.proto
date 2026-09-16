@@ -106,9 +106,11 @@ message Auth {
   // logged once.
   string admin_username = 8;
   string admin_password = 9;
-  // Bootstrap read-only guest account.
+  // Bootstrap read-only guest account. It carries no password: a client opens
+  // a guest session through AuthService.GuestLogin, which needs none.
   string guest_username = 10;
-  string guest_password = 11;
+  reserved 11;
+  reserved "guest_password";
   // Lifetime of the node unlock token returned by NodeService.UnlockNode.
   google.protobuf.Duration node_token_ttl = 12;
   // Minimum password length accepted for accounts.

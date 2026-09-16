@@ -28,8 +28,8 @@ pnpm dev              # http://localhost:5173
 | 2 | `frontend/.env.development.local` | 已在本地指向 `http://127.0.0.1:3010`（该文件被 `.gitignore` 的 `*.local` 忽略） |
 | 3 | 默认值 | `http://127.0.0.1:8000`，与 `configs/config.yaml` 的 `server.http.addr` 一致 |
 
-登录账号：内置管理员 `admin`；只读访客 `guest`。口令取自后端首次初始化数据库时写入的值
-（`auth.admin_password` / `auth.guest_password` 只在建库那一次生效，之后改配置不会覆盖旧口令）。
+登录账号：内置管理员 `admin`，口令取自后端首次初始化数据库时写入的值（`auth.admin_password` 只在建库那一次生效，之后改配置不会覆盖旧口令）。
+只读访客 `guest` **不需要登录**：前端启动时调用公开的 `POST /v1/auth/guest` 直接换取只读令牌，前提是服务端 `auth.guest_auto_login: true`。
 
 ## 2. 构建与部署
 

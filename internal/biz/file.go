@@ -206,7 +206,8 @@ func NewFileUsecase(nodes *NodeUsecase, repo FileRepo, tx TxManager, store Objec
 	return &FileUsecase{nodes: nodes, repo: repo, tx: tx, store: store, signer: signer, limit: limit, baseURL: base}
 }
 
-// Limits exposes the effective upload configuration.
+// Limits exposes the effective upload configuration: the values in force after
+// the defaults below were applied, which is what a client should be told about.
 func (uc *FileUsecase) Limits() UploadLimits { return uc.limit }
 
 // Store exposes the object store so callers can stream content.

@@ -116,7 +116,7 @@ go run ./cmd/nagisa -conf ./configs
 | 显式指定 | 设置 `auth.admin_password`（示例配置里可用环境变量 `ADMIN_PASSWORD`），首次启动即用该密码 |
 | 留空自动生成 | `admin_password` 留空时，服务端生成一个 12 字节随机密码，**只在日志中打印一次**：先查 `auth` 配置下的 `admin_password`，再看首次启动日志里的 `bootstrap account created with a generated password` 这条 WARN，其 `password` 字段就是初始密码 |
 
-内置访客账号同理（`auth.guest_username` / `auth.guest_password`，默认 `guest`，默认权限为只读的 `view|download`）。
+内置访客账号（`auth.guest_username`，默认 `guest`，默认权限为只读的 `view|download`）**没有密码**：它的入口是免密的 `POST /v1/auth/guest`，是否开放由 `auth.guest_auto_login` 决定，所以服务端也不会为它打印任何口令。
 
 ## 5 分钟 API 漫游
 
@@ -283,9 +283,8 @@ go test -tags integration ./test/integration/ -v
 | --- | --- | --- |
 | `NETDISK_BASE_URL` | `http://127.0.0.1:18000` | 服务基地址；探测 `/v1/system/health` 失败时测试会 skip |
 | `NETDISK_ADMIN` | `Admin@12345` | 管理员密码（明文，测试内部自行做 RSA 加密） |
-| `NETDISK_GUEST` | `Guest@12345` | 访客密码 |
 
-因此本机跑集成测试时，服务端的 `auth.admin_password` / `auth.guest_password` 要么与上述默认值一致，要么通过 `NETDISK_ADMIN` / `NETDISK_GUEST` 显式告知测试。
+访客不需要凭据：测试用公开的 `POST /v1/auth/guest` 换取只读令牌，因此服务端的 `auth.admin_password` 要么与上述默认值一致，要么通过 `NETDISK_ADMIN` 显式告知测试。
 
 ## 安全要点
 

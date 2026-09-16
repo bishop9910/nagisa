@@ -30,7 +30,6 @@ const BASE = String(arg('base', process.env.NAGISA_BASE ?? 'http://127.0.0.1:800
 const USER = String(arg('user', 'admin'))
 const PASSWORD = String(arg('password', 'Admin@12345'))
 const GUEST_USER = String(arg('guest', 'guest'))
-const GUEST_PASSWORD = String(arg('guest-password', 'Guest@12345'))
 const SKIP_SHARE = Boolean(arg('skip-share', false))
 
 const run = Date.now().toString(36)
@@ -130,6 +129,18 @@ async function login(username, password) {
   if (result.status !== 200) {
     line(`[ERROR] 登录失败（${username}）：HTTP ${result.status} ${result.text?.slice(0, 160)}`)
     line('        账号口令只在该 SQLite 文件首次初始化时写入；若库已存在，请用当时设置的口令，或删库重来。')
+    process.exit(2)
+  }
+  return result.body
+}
+
+// The built-in guest has no password, so the read-only session is opened
+// through the public POST /v1/auth/guest exactly like the front end does.
+async function guestLogin(username) {
+  const result = await call('POST', '/v1/auth/guest', { anonymous: true, body: {} })
+  if (result.status !== 200) {
+    line(`[ERROR] 访客登录失败（${username}）：HTTP ${result.status} ${result.text?.slice(0, 160)}`)
+    line('        访客入口需要服务端 auth.guest_auto_login: true，且访客账号必须存在（首次启动时自动创建）。')
     process.exit(2)
   }
   return result.body
@@ -269,7 +280,7 @@ async function main() {
     200,
   )
   const lockedId = locked.id
-  const guestSession = await login(GUEST_USER, GUEST_PASSWORD)
+  const guestSession = await guestLogin(GUEST_USER)
   const guestToken = guestSession.accessToken
   const denied = check(
     'GET  /v1/nodes/list（未解锁，应为 403）',

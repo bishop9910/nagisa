@@ -202,6 +202,7 @@ Go 客户端的关键两步是 `x509.ParsePKIXPublicKey` 与 `rsa.EncryptOAEP(sh
 行为要点：
 
 - 只有 `auth.guest_auto_login: true` 时可用；`GET /v1/auth/config` 的 `guestLoginEnabled` 会如实反映，客户端应据此决定要不要显示「以访客身份浏览」。
+- **访客没有口令**：内置访客账号的密码哈希是一串谁也拿不到的随机值，用 `Login` 提交 `guest` 这个用户名一律返回 `NETDISK_UNAUTHENTICATED`。关掉 `auth.guest_auto_login` 就等于彻底关闭访客入口；需要一个有口令的只读账号，请自建账号并使用 `guest` 角色预设。
 - **内置访客账号被锁死**：角色、等级、权限集、状态都由配置决定，没有任何账号（包括内置管理员）能通过 API 修改或删除它——`User.manageable` 与 `User.permissionsEditable` 对这两个内置账号恒为 false。服务端每次启动还会把它们校正回配置值。
 - 访客能看到什么，完全由既有的可见范围与访问名单决定：`VisibilityInternal` / `VisibilityPublic` 的节点对已登录身份可见，访客会话因此也是「已登录」身份。给某个用户或角色加 ACL 条目同样生效。
 

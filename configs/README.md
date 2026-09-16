@@ -62,7 +62,7 @@
 | `password_private_key_file` | `./data/password_key.pem` | RSA 私钥路径，用来解开客户端 RSA 加密后的密码。文件不存在会自动生成。**这是密码体系的钥匙，容器化必须挂持久卷** |
 | `allow_plain_password` | `false` | 允许客户端不加密直接发明文密码。只有本地临时调试才开 |
 | `admin_username` / `admin_password` | `admin` / 空 | 内置超级管理员。密码留空则首次启动随机生成并往日志打一次；账号已存在时不会覆盖 |
-| `guest_username` / `guest_password` | `guest` / 空 | 内置访客账号，默认只读。密码同理 |
+| `guest_username` | `guest` | 内置访客账号，默认只读。**没有密码配置**——访客会话一律走 `POST /v1/auth/guest` 免密换取 |
 | `guest_auto_login` | `true` | **打开网页不用登录就是访客**：前端启动时自动换取一个只读访问令牌。访客账号的角色、等级、权限与状态被锁死，任何人都改不了（和内置管理员一样），只有这里能关掉这个入口 |
 | `node_token_ttl` | `1800s` | 输入文件夹密码后拿到的解锁令牌能用多久 |
 | `min_password_length` | `8` | 账号密码、文件夹密码、分享密码的最短长度 |

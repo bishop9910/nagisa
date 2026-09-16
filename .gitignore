@@ -34,7 +34,10 @@ Thumbs.db
 *.log
 bin/
 .cache/
-data/
+# Runtime state only: the SQLite database and the RSA password key live in
+# ./data. Anchored to the repository root on purpose, so the Go package at
+# internal/data stays tracked.
+/data/
 web/dist
 
 

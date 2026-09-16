@@ -64,7 +64,7 @@ func wireApp(bootstrap *conf.Bootstrap, logger *slog.Logger) (*kratos.App, func(
 	auditService := service.NewAuditService(auditUsecase)
 	statsRepo := data.NewStatsRepo(dataData)
 	settingRepo := data.NewSettingRepo(dataData)
-	systemUsecaseOptions := provideSystemOptions(bootstrap)
+	systemUsecaseOptions := provideSystemOptions(bootstrap, fileUsecase)
 	systemUsecase := biz.NewSystemUsecase(userRepo, nodeUsecase, nodeRepo, fileRepo, shareRepo, statsRepo, settingRepo, objectStore, dataData, systemUsecaseOptions)
 	systemService := service.NewSystemService(systemUsecase, authUsecase)
 	grpcServer := server.NewGRPCServer(confServer, authService, authUsecase, userService, nodeService, fileService, shareService, auditService, systemService)

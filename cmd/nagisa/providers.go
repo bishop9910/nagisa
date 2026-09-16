@@ -93,7 +93,6 @@ func provideUserOptions(c *conf.Bootstrap) biz.UserUsecaseOptions {
 	return biz.UserUsecaseOptions{
 		DefaultQuotaBytes: c.GetStorage().GetDefaultQuotaBytes(),
 		DefaultRolePreset: c.GetStorage().GetDefaultRolePreset(),
-		MinPasswordLength: int(c.GetAuth().GetMinPasswordLength()),
 		AdminUsername:     c.GetAuth().GetAdminUsername(),
 		GuestUsername:     c.GetAuth().GetGuestUsername(),
 	}
@@ -150,9 +149,15 @@ func provideAuthOptions(c *conf.Bootstrap) biz.AuthUsecaseOptions {
 	}
 }
 
-func provideSystemOptions(c *conf.Bootstrap) biz.SystemUsecaseOptions {
+// provideSystemOptions describes the deployment. The upload limits come from
+// the file usecase rather than straight from the configuration, so the report
+// carries the values actually in force once its defaults were applied: a
+// deployment that leaves the upload section out still advertises the real
+// chunk sizes and session lifetime instead of zeroes.
+func provideSystemOptions(c *conf.Bootstrap, files *biz.FileUsecase) biz.SystemUsecaseOptions {
 	u := c.GetUpload()
 	s := c.GetStorage()
+	limits := files.Limits()
 	backend := "none"
 	if c.GetData().GetObjectStorage().GetEndpoint() != "" {
 		backend = "s3"
@@ -173,13 +178,13 @@ func provideSystemOptions(c *conf.Bootstrap) biz.SystemUsecaseOptions {
 			Version:           Version,
 			APIVersion:        "v1",
 			Features:          systemFeatures(c, backend),
-			MaxUploadSize:     u.GetMaxFileSize(),
-			DefaultChunkSize:  u.GetDefaultChunkSize(),
-			MinChunkSize:      u.GetMinChunkSize(),
-			MaxInlineSize:     u.GetMaxInlineSize(),
-			UploadSessionTTL:  u.GetSessionTtl().AsDuration(),
-			SignedURLTTL:      c.GetData().GetObjectStorage().GetPresignTtl().AsDuration(),
-			SignedURLMaxTTL:   4 * c.GetData().GetObjectStorage().GetPresignTtl().AsDuration(),
+			MaxUploadSize:     limits.MaxFileSize,
+			DefaultChunkSize:  limits.DefaultChunkSize,
+			MinChunkSize:      limits.MinChunkSize,
+			MaxInlineSize:     limits.MaxInlineSize,
+			UploadSessionTTL:  limits.SessionTTL,
+			SignedURLTTL:      limits.PresignTTL,
+			SignedURLMaxTTL:   4 * limits.PresignTTL,
 			UploadModes:       modes,
 			StorageBackend:    backend,
 			DatabaseBackend:   database,

@@ -106,7 +106,6 @@ type UserRepo interface {
 type UserUsecaseOptions struct {
 	DefaultQuotaBytes int64
 	DefaultRolePreset string
-	MinPasswordLength int
 	// Names of the two built-in accounts. They are fixed by the deployment and
 	// out of reach of every caller, including an administrator.
 	AdminUsername string
@@ -120,15 +119,11 @@ type UserUsecase struct {
 
 	defaultQuota  int64
 	defaultPreset string
-	minPassword   int
 	builtin       map[string]struct{}
 }
 
 // NewUserUsecase returns a user usecase.
 func NewUserUsecase(repo UserRepo, tx TxManager, opts UserUsecaseOptions) *UserUsecase {
-	if opts.MinPasswordLength <= 0 {
-		opts.MinPasswordLength = 8
-	}
 	builtin := make(map[string]struct{}, 2)
 	for _, name := range []string{opts.AdminUsername, opts.GuestUsername} {
 		if key := accountKey(name); key != "" {
@@ -140,7 +135,6 @@ func NewUserUsecase(repo UserRepo, tx TxManager, opts UserUsecaseOptions) *UserU
 		tx:            tx,
 		defaultQuota:  opts.DefaultQuotaBytes,
 		defaultPreset: opts.DefaultRolePreset,
-		minPassword:   opts.MinPasswordLength,
 		builtin:       builtin,
 	}
 }
@@ -549,9 +543,6 @@ func (uc *UserUsecase) ChangePassword(ctx context.Context, id uuid.UUID, hash st
 		return uc.repo.RevokeUserSessions(ctx, id)
 	})
 }
-
-// MinPasswordLength is the configured minimum password length.
-func (uc *UserUsecase) MinPasswordLength() int { return uc.minPassword }
 
 // CanManageUser enforces the authority order: a caller may only act on an
 // account whose rank is strictly lower than its own, and the built-in

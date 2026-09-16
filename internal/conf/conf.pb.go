@@ -239,9 +239,9 @@ type Auth struct {
 	// logged once.
 	AdminUsername string `protobuf:"bytes,8,opt,name=admin_username,json=adminUsername,proto3" json:"admin_username,omitempty"`
 	AdminPassword string `protobuf:"bytes,9,opt,name=admin_password,json=adminPassword,proto3" json:"admin_password,omitempty"`
-	// Bootstrap read-only guest account.
+	// Bootstrap read-only guest account. It carries no password: a client opens
+	// a guest session through AuthService.GuestLogin, which needs none.
 	GuestUsername string `protobuf:"bytes,10,opt,name=guest_username,json=guestUsername,proto3" json:"guest_username,omitempty"`
-	GuestPassword string `protobuf:"bytes,11,opt,name=guest_password,json=guestPassword,proto3" json:"guest_password,omitempty"`
 	// Lifetime of the node unlock token returned by NodeService.UnlockNode.
 	NodeTokenTtl *durationpb.Duration `protobuf:"bytes,12,opt,name=node_token_ttl,json=nodeTokenTtl,proto3" json:"node_token_ttl,omitempty"`
 	// Minimum password length accepted for accounts.
@@ -350,13 +350,6 @@ func (x *Auth) GetAdminPassword() string {
 func (x *Auth) GetGuestUsername() string {
 	if x != nil {
 		return x.GuestUsername
-	}
-	return ""
-}
-
-func (x *Auth) GetGuestPassword() string {
-	if x != nil {
-		return x.GuestPassword
 	}
 	return ""
 }
@@ -1228,7 +1221,7 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\vpresign_ttl\x18\n" +
 	" \x01(\v2\x19.google.protobuf.DurationR\n" +
 	"presignTtl\x120\n" +
-	"\x14insecure_skip_verify\x18\v \x01(\bR\x12insecureSkipVerify\"\x9f\x05\n" +
+	"\x14insecure_skip_verify\x18\v \x01(\bR\x12insecureSkipVerify\"\x8e\x05\n" +
 	"\x04Auth\x12\x1d\n" +
 	"\n" +
 	"jwt_secret\x18\x01 \x01(\tR\tjwtSecret\x12\x16\n" +
@@ -1241,11 +1234,10 @@ const file_conf_conf_proto_rawDesc = "" +
 	"\x0eadmin_username\x18\b \x01(\tR\radminUsername\x12%\n" +
 	"\x0eadmin_password\x18\t \x01(\tR\radminPassword\x12%\n" +
 	"\x0eguest_username\x18\n" +
-	" \x01(\tR\rguestUsername\x12%\n" +
-	"\x0eguest_password\x18\v \x01(\tR\rguestPassword\x12?\n" +
+	" \x01(\tR\rguestUsername\x12?\n" +
 	"\x0enode_token_ttl\x18\f \x01(\v2\x19.google.protobuf.DurationR\fnodeTokenTtl\x12.\n" +
 	"\x13min_password_length\x18\r \x01(\x05R\x11minPasswordLength\x12(\n" +
-	"\x10guest_auto_login\x18\x0e \x01(\bR\x0eguestAutoLogin\"\xe4\x03\n" +
+	"\x10guest_auto_login\x18\x0e \x01(\bR\x0eguestAutoLoginJ\x04\b\v\x10\fR\x0eguest_password\"\xe4\x03\n" +
 	"\aStorage\x12(\n" +
 	"\x10root_folder_name\x18\x01 \x01(\tR\x0erootFolderName\x12.\n" +
 	"\x13default_quota_bytes\x18\x02 \x01(\x03R\x11defaultQuotaBytes\x12*\n" +

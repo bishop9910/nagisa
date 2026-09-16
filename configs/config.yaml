@@ -67,11 +67,13 @@ auth:
   # Leave empty to have a random password generated and logged once at first
   # start, which is the safer default for a fresh deployment.
   admin_password: ${ADMIN_PASSWORD:}
+  # The built-in guest account has no password: a client opens a guest session
+  # through POST /v1/auth/guest, which asks for nothing but the switch below.
   guest_username: guest
-  guest_password: ${GUEST_PASSWORD:}
   # Anyone may open a read-only guest session without a password, which is what
   # lets the web front end show readable content straight away. The built-in
-  # guest account keeps its fixed read-only permission set either way.
+  # guest account keeps its fixed read-only permission set either way, and
+  # turning this off is the only way to close the guest entrance.
   guest_auto_login: true
   node_token_ttl: 1800s
   min_password_length: 8

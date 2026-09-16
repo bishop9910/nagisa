@@ -110,9 +110,6 @@ func (uc *AuthUsecase) RefreshTokenTTL() time.Duration { return uc.refreshTTL }
 // NodeTokenTTL is the lifetime of a folder unlock token.
 func (uc *AuthUsecase) NodeTokenTTL() time.Duration { return uc.nodeTTL }
 
-// MinPasswordLength is the configured minimum password length.
-func (uc *AuthUsecase) MinPasswordLength() int { return uc.minPassword }
-
 // DecodePassword turns a client supplied password field into clear text.
 func (uc *AuthUsecase) DecodePassword(field string) (string, error) {
 	if field == "" {

@@ -107,7 +107,7 @@ KRATOS_JWT_SECRET=... KRATOS_ADMIN_PASSWORD=... ./bin/nagisa -conf ./configs
 | `conn_max_lifetime` | Duration | `0` → 不限制 | `0s` | 连接最长存活时间 |
 | `wal` | bool | `false` | `true` | 加 `_pragma=journal_mode(WAL)`。**强烈建议开**：读不阻塞写 |
 | `busy_timeout` | Duration | `0` → `10s` | `10s` | 加 `_pragma=busy_timeout(<毫秒>)`，写锁等待时长 |
-| `foreign_keys` | bool | `false` | `true` | 加 `_pragma=foreign_keys(1)` |
+| `foreign_keys` | bool | `false` | `true` | 加 `_pragma=foreign_keys(1)`。**`auto_migrate: true` 时必须同时设为 `true`**：ent 迁移要求 DSN 里带 `_fk=1`，否则直接 panic（见第 8 节） |
 
 SQLite 的 DSN 会被自动追加 `_txlock=immediate`（除非你自己写了 `_txlock`）与 `_pragma=synchronous(NORMAL)`。原因见 [`architecture.md`](architecture.md#) 的并发一节：延迟事务「先读后写」需要升级锁，SQLite 会立刻返回 `SQLITE_BUSY` 而不等 `busy_timeout`，用 IMMEDIATE 可以消掉这一类 `database is locked`。
 
@@ -151,9 +151,8 @@ SQLite 的 DSN 会被自动追加 `_txlock=immediate`（除非你自己写了 `_
 | `allow_plain_password` | bool | `false` | `false` | 允许非 RSA 编码的密码。**只在本地临时调试时开**，相当于放弃「密码不明文传输」这一保证 |
 | `admin_username` | string | 空 → `admin` | `admin` | 内置管理员用户名，首次启动时创建 |
 | `admin_password` | string | 空 → 随机生成并在启动日志打印一次 | `${ADMIN_PASSWORD:}` | 内置管理员初始密码。**只在账号不存在时使用**，重启不会覆盖已有密码 |
-| `guest_username` | string | 空 → `guest` | `guest` | 内置访客用户名 |
-| `guest_password` | string | 空 → 随机生成并打印一次 | `${GUEST_PASSWORD:}` | 内置访客初始密码 |
-| `guest_auto_login` | bool | `false` | `true` | 允许不输口令直接换一个只读访客会话（`POST /v1/auth/guest`），前端启动时就会自动调用，从而实现「打开网页即只读浏览」。**无论开关如何，内置访客账号的角色、等级、权限集与状态都是锁死的**：没有任何账号（包括内置管理员）能修改或删除它，服务端每次启动还会把它们校正回来 |
+| `guest_username` | string | 空 → `guest` | `guest` | 内置访客用户名。**它没有密码键**：访客身份只能通过 `POST /v1/auth/guest` 免密取得，所以账号里的口令哈希是一串谁也拿不到的随机值，用 `auth.login` 走口令登录永远失败 |
+| `guest_auto_login` | bool | `false` | `true` | 允许不输口令直接换一个只读访客会话（`POST /v1/auth/guest`），前端启动时就会自动调用，从而实现「打开网页即只读浏览」。**这是访客唯一的入口**：关掉它就没有任何办法以访客身份登录。**无论开关如何，内置访客账号的角色、等级、权限集与状态都是锁死的**：没有任何账号（包括内置管理员）能修改或删除它，服务端每次启动还会把它们校正回来 |
 | `node_token_ttl` | Duration | `0` → `30m` | `1800s` | `UnlockNode` 返回的文件夹解锁令牌有效期 |
 | `min_password_length` | int32 | `0` → `8` | `8` | 账号密码最小长度（按字符计）。文件夹密码与分享密码同样受此下限约束 |
 
@@ -257,7 +256,6 @@ data:
 auth:
   jwt_secret: local-dev-only
   admin_password: Admin@12345
-  guest_password: Guest@12345
 storage:
   root_folder_name: 我的网盘
 web:
@@ -292,7 +290,6 @@ data:
 auth:
   jwt_secret: local-dev-only
   admin_password: Admin@12345
-  guest_password: Guest@12345
   allow_plain_password: false
 upload:
   default_mode: presigned
@@ -344,7 +341,6 @@ auth:
   allow_plain_password: false
   admin_password: ${ADMIN_PASSWORD:}
   guest_username: guest
-  guest_password: ${GUEST_PASSWORD:}
   node_token_ttl: 900s
   min_password_length: 12
 storage:
@@ -387,7 +383,6 @@ KRATOS_JWT_SECRET=$(openssl rand -base64 48)
 KRATOS_S3_ACCESS_KEY=...
 KRATOS_S3_SECRET_KEY=...
 KRATOS_ADMIN_PASSWORD=...
-KRATOS_GUEST_PASSWORD=...
 ```
 
 ---
@@ -400,9 +395,11 @@ KRATOS_GUEST_PASSWORD=...
 | `panic: unsupported key: xxx format: yyy` | 配置目录里有非配置文件的扩展名 | 已修复：目录形态只读 `config.yaml`。若你显式传了文件，请确认它是 YAML |
 | `panic: config path ...: no such file` | `-conf` 路径不存在，或目录里没有 `config.yaml` | 检查路径；默认是 `./configs` |
 | `panic: data: open database: ...` | SQLite 目录不可写，或 MySQL DSN 错误 | 检查 `source` 的父目录权限 |
+| `panic: data: migrate schema: sqlite: foreign_keys pragma is off: missing "_fk=1" in the connection string` | 用 SQLite 且开了 `auto_migrate: true`，但 `data.database.foreign_keys` 还是代码默认的 `false` | ent 建表/改表要求连接串里有 `_fk=1`，把 `foreign_keys` 设成 `true`（两个开关应当同开同关；三个可抄示例都是这么配的） |
 | `panic: data: probe bucket / create bucket` | 对象存储不可达或凭据错误，且 `auto_create_bucket: true` | 修好连通性，或先 `auto_create_bucket: false` 让进程起来 |
 | 日志出现 `auth.jwt_secret is unset ...` | 未设置 `jwt_secret` | 设好它，否则重启后所有令牌失效 |
 | `allow_plain_password: true` | 无 | 生产环境必须为 `false` |
+| 老配置里还留着 `auth.guest_password` | 该键已移除，访客不再有口令 | **不会导致启动失败**：配置解码用的是 protojson 的 `DiscardUnknown`，多余键被静默丢弃，顺手删掉那一行即可 |
 
 自检：
 
@@ -412,6 +409,8 @@ curl -s http://127.0.0.1:8000/v1/system/info     # 生效的存储后端、限�
 ```
 
 `/v1/system/info` 会把实际生效的 `storage_backend`、`database_backend`、各种上限与 `upload_modes` 报回来，是确认配置是否按预期生效的最快方式。
+
+上传相关的几个上限（`default_chunk_size`、`min_chunk_size`、`max_inline_size`、`session_ttl`、签名 URL 的 TTL 与它的 4 倍上限）报的是**生效值**，即服务端补齐默认之后的值，而不是配置文件里写的原始值：不写 `upload` 段也会看到 `8388608` / `5242880` / `4194304` / `86400s` / `1800s` / `7200s`，不会是一串 `0`。
 
 ---
 

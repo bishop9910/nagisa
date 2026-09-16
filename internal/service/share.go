@@ -81,6 +81,10 @@ func (s *ShareService) CreateShare(ctx context.Context, req *v1.CreateShareReque
 		if err != nil {
 			return nil, err
 		}
+		// A link password obeys auth.min_password_length like any other.
+		if err := s.auth.ValidatePassword(plain); err != nil {
+			return nil, err
+		}
 		passwordHash, err = s.uc.HashPassword(plain)
 		if err != nil {
 			return nil, err
@@ -343,6 +347,9 @@ func (s *ShareService) UpdateShare(ctx context.Context, req *v1.UpdateShareReque
 			}
 			plain, err := s.auth.DecodePassword(req.GetPassword())
 			if err != nil {
+				return nil, err
+			}
+			if err := s.auth.ValidatePassword(plain); err != nil {
 				return nil, err
 			}
 			hash, err := s.uc.HashPassword(plain)

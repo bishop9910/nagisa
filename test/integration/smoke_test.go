@@ -10,9 +10,10 @@
 //	go test -tags integration ./test/integration/ -v
 //
 // The base URL defaults to http://127.0.0.1:18000 and can be overridden with
-// NETDISK_BASE_URL. The expected bootstrap credentials come from NETDISK_ADMIN
-// and NETDISK_GUEST, defaulting to the values used by configs/config.yaml in a
-// local run.
+// NETDISK_BASE_URL. The expected administrator password comes from
+// NETDISK_ADMIN, defaulting to the value used by configs/config.yaml in a local
+// run; the guest needs no credential because it is entered through the public
+// POST /v1/auth/guest.
 package integration
 
 import (
@@ -243,7 +244,6 @@ func TestSmoke(t *testing.T) {
 	subName := "y2026-" + run
 
 	adminPassword := envOr("NETDISK_ADMIN", "Admin@12345")
-	guestPassword := envOr("NETDISK_GUEST", "Guest@12345")
 
 	t.Run("public endpoints", func(t *testing.T) {
 		info, _ := admin.do(t, http.MethodGet, "/v1/system/info", nil, 0)
@@ -293,7 +293,16 @@ func TestSmoke(t *testing.T) {
 
 	guest := newClient(t)
 	guestKey := guest.passwordKey(t)
-	guestReply := guest.login(t, guestKey, "guest", guestPassword)
+	// The built-in guest account carries no usable password: the public
+	// POST /v1/auth/guest is its only entrance, and a password login for it
+	// must fail like any other bad credential.
+	refused, _ := guest.do(t, http.MethodPost, "/v1/auth/login", map[string]any{
+		"username": "guest", "password": guestKey.encode(t, "Guest@12345"),
+	}, http.StatusUnauthorized)
+	if str(refused, "reason") != "NETDISK_UNAUTHENTICATED" {
+		t.Errorf("guest password login reason = %q", str(refused, "reason"))
+	}
+	guestReply, _ := guest.do(t, http.MethodPost, "/v1/auth/guest", nil, 0)
 	guest.token = str(guestReply, "accessToken")
 	if guest.token == "" {
 		t.Fatalf("guest login returned no token")
