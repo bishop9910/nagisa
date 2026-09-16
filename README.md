@@ -58,7 +58,7 @@ Nagisa 是一个可直接商用部署的轻量级网盘后端：用 Kratos v3 �
 
 | 依赖 | 说明 |
 | --- | --- |
-| Go | 1.25 或更高（`go.mod` 声明 `go 1.25.7`，镜像使用 `golang:1.25`） |
+| Go | 1.25 或更高（`go.mod` 声明 `go 1.25.7`，镜像使用 `golang:1.25`）。本机 Go 更旧时 `.\scripts\build.ps1` 会把 `GOTOOLCHAIN` 固定到 `go.mod` 声明的版本，用本地模块缓存里的工具链，避免生成步骤联网拉工具链 |
 | SeaweedFS 或任意 S3 兼容存储 | 分片上传、签名下载、打包下载都依赖它；仅跑数据库与接口时可以把 `data.object_storage.endpoint` 留空。换成别的实现只改配置，见 [`docs/deployment.md`](docs/deployment.md#17-换后端时的兼容性核对清单) |
 | GNU Make | 生成与构建都通过 `Makefile` 驱动 |
 | `wire` / `buf` | 由初始化命令安装（`make init` 或 `.\scripts\build.ps1 init`） |
@@ -88,7 +88,7 @@ Windows（不需要安装 `make`，用仓库自带的 PowerShell 脚本）：
 
 两套入口做的事完全一样，都会重新生成 `*.pb.go`、`*_http.pb.go`、`internal/conf/conf.pb.go`、`wire_gen.go`、`openapi.yaml`，并由 `tools/openapi` 富化文档、把副本发布到 `docs/`。这些文件不要手改。生成命令的完整说明见 [`docs/architecture.md`](docs/architecture.md#72-生成命令)。
 
-> 生成链需要 `buf`。若它不在 PATH 上，脚本会自动到 `%GOPATH%\bin` 里找；`init` 会把 `buf` 与 `wire` 装到那里。注意 `wire` 用 `go run github.com/google/wire/cmd/wire@v0.7.0` 调用，因为 v0.6.0 无法解析 `go 1.25` 的模块。
+> 生成链需要 `buf`。若它不在 PATH 上，脚本会自动到 `%GOPATH%\bin` 里找；`init` 会把 `buf` 与 `wire` 装到那里。注意 `buf` 是把每个 protoc 插件当 `go run pkg@version` 跑的，那些插件在合成模块里解析，用的是本机 Go 而不是 `go.mod` 的 `go` 指令：本机 Go 比要求旧时会去下载工具链，模块代理不通就整条目标失败。所以脚本会按 `go.mod` 固定 `GOTOOLCHAIN`（并留 `+auto` 允许更新版本），这也是 `wire` 指令能跑起来的原因。
 
 ### 启动
 

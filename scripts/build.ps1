@@ -51,6 +51,33 @@ function Resolve-Tool {
 
 $go = Resolve-Tool -Name 'go' -Hint 'Install the Go toolchain first: https://go.dev/dl/'
 
+# buf runs the protoc plugins as `go run pkg@version`, and anything built that
+# way resolves in a synthetic module: it uses the installed Go instead of the
+# `go` directive in go.mod. A plugin that requires a newer Go therefore makes
+# the go command reach for a toolchain download, which fails wherever the module
+# proxy is unreachable, and the whole target dies. Pinning GOTOOLCHAIN to the
+# version go.mod already asks for takes that toolchain from the local module
+# cache instead; the `+auto` suffix still allows a newer one when a module
+# demands it. Without this guard a checkout whose installed Go is older than
+# go.mod cannot run `api`, `generate` or `all` at all.
+$requiredGo = ''
+$directive = Select-String -Path (Join-Path $repo 'go.mod') -Pattern '^go\s+(\d+\.\d+(\.\d+)?)' -ErrorAction SilentlyContinue
+if ($directive -and $directive.Matches.Count -gt 0) { $requiredGo = $directive.Matches[0].Groups[1].Value }
+if ($requiredGo) {
+    # `go version` reports the toolchain the module already switched to, so the
+    # installed one has to be read with switching turned off.
+    $previousToolchain = $env:GOTOOLCHAIN
+    $env:GOTOOLCHAIN = 'local'
+    $installedGo = ((& $go version) -replace '^go version go([0-9][0-9.]*).*$', '$1')
+    $env:GOTOOLCHAIN = $previousToolchain
+    $tooOld = $false
+    try { $tooOld = ([version]$installedGo -lt [version]$requiredGo) } catch { $tooOld = $false }
+    if ($tooOld -and $env:GOTOOLCHAIN -ne "go$requiredGo+auto") {
+        $env:GOTOOLCHAIN = "go$requiredGo+auto"
+        Write-Host "installed Go $installedGo is older than go.mod ($requiredGo): using GOTOOLCHAIN=go$requiredGo+auto" -ForegroundColor Yellow
+    }
+}
+
 function Get-Buf { Resolve-Tool -Name 'buf' -Hint 'Install it with: .\scripts\build.ps1 init' }
 
 function Get-Version {

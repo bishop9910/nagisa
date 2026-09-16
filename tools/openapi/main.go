@@ -16,6 +16,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -412,7 +413,15 @@ func addErrorResponses(root *yaml.Node) {
 					needed[status] = true
 				}
 			}
+			// Walked in sorted order, not as a range over needed: map iteration
+			// order would shuffle the shared error responses on every run, so
+			// the published document would keep differing from itself.
+			statuses := make([]string, 0, len(needed))
 			for status := range needed {
+				statuses = append(statuses, status)
+			}
+			sort.Strings(statuses)
+			for _, status := range statuses {
 				if mapLookup(existing, status) != nil {
 					continue
 				}
