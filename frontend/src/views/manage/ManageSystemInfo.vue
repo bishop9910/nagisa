@@ -13,9 +13,11 @@ import AppEmpty from '@/components/ui/AppEmpty.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import { errorText, systemApi } from '@/api'
 import type { HealthStatus, SystemSetting } from '@/api/types'
+import { useAuthStore } from '@/stores/auth'
 import { useSystemStore } from '@/stores/system'
 import { formatBytes, formatDateTime, formatDuration, toInt } from '@/utils/format'
 
+const auth = useAuthStore()
 const system = useSystemStore()
 
 const settings = ref<SystemSetting[]>([])
@@ -24,7 +26,14 @@ const loading = ref(false)
 const probing = ref(false)
 const error = ref('')
 
-const auth = computed(() => system.info?.auth ?? {})
+/** 服务端下发的公开认证参数（口令最小长度、编码方式、令牌有效期……）。 */
+const authConfig = computed(() => system.info?.auth ?? {})
+
+/**
+ * 参数列表走 GET /v1/system/settings/list，服务端那边由 storage_manage 把关
+ * （写入才是 system_manage），少这项权限就别发这个注定 403 的请求。
+ */
+const canReadParams = computed(() => auth.canManageStorage)
 
 /** 上传模式是枚举，直接展示枚举名没有意义，翻成人话。 */
 const uploadModeLabel = computed(() =>
@@ -70,6 +79,10 @@ async function loadHealth(): Promise<void> {
 }
 
 async function loadSettings(): Promise<void> {
+  if (!canReadParams.value) {
+    settings.value = []
+    return
+  }
   loading.value = true
   error.value = ''
   try {
@@ -208,33 +221,33 @@ onMounted(() => void refresh())
               </div>
               <div>
                 <dt>口令传输编码</dt>
-                <dd class="mono">{{ auth.passwordEncoding || '—' }}</dd>
+                <dd class="mono">{{ authConfig.passwordEncoding || '—' }}</dd>
               </div>
               <div>
                 <dt>允许明文口令</dt>
                 <dd>
-                  <AppBadge :tone="auth.plainPasswordAllowed ? 'warning' : 'success'" size="sm">
-                    {{ auth.plainPasswordAllowed ? '允许（不推荐）' : '不允许' }}
+                  <AppBadge :tone="authConfig.plainPasswordAllowed ? 'warning' : 'success'" size="sm">
+                    {{ authConfig.plainPasswordAllowed ? '允许（不推荐）' : '不允许' }}
                   </AppBadge>
                 </dd>
               </div>
               <div>
                 <dt>口令公钥标识</dt>
-                <dd class="mono truncate" :title="auth.passwordKeyId">{{ auth.passwordKeyId || '—' }}</dd>
+                <dd class="mono truncate" :title="authConfig.passwordKeyId">{{ authConfig.passwordKeyId || '—' }}</dd>
               </div>
               <div>
                 <dt>访问令牌有效期</dt>
-                <dd>{{ duration(auth.accessTokenTtlSeconds) }}</dd>
+                <dd>{{ duration(authConfig.accessTokenTtlSeconds) }}</dd>
               </div>
               <div>
                 <dt>刷新令牌有效期</dt>
-                <dd>{{ duration(auth.refreshTokenTtlSeconds) }}</dd>
+                <dd>{{ duration(authConfig.refreshTokenTtlSeconds) }}</dd>
               </div>
               <div>
                 <dt>免登录访客</dt>
                 <dd>
-                  <AppBadge :tone="auth.guestLoginEnabled ? 'success' : 'neutral'" size="sm">
-                    {{ auth.guestLoginEnabled ? '已开启' : '已关闭' }}
+                  <AppBadge :tone="authConfig.guestLoginEnabled ? 'success' : 'neutral'" size="sm">
+                    {{ authConfig.guestLoginEnabled ? '已开启' : '已关闭' }}
                   </AppBadge>
                 </dd>
               </div>
@@ -284,13 +297,27 @@ onMounted(() => void refresh())
         <div>
           <p class="card__title">服务端登记的运行参数</p>
           <p class="card__subtitle">
-            共 {{ settings.length }} 项 · 来自 GET /v1/system/settings/list · 只读展示
+            <template v-if="canReadParams">共 {{ settings.length }} 项 · </template>
+            来自 GET /v1/system/settings/list · 只读展示
           </p>
         </div>
-        <AppButton size="sm" variant="ghost" icon="refresh" :loading="loading" @click="loadSettings">重新加载</AppButton>
+        <AppButton
+          size="sm"
+          variant="ghost"
+          icon="refresh"
+          :loading="loading"
+          :disabled="!canReadParams"
+          @click="loadSettings"
+        >
+          重新加载
+        </AppButton>
       </header>
 
-      <p v-if="loading && settings.length === 0" class="system-info__state muted text-sm">加载中…</p>
+      <p v-if="!canReadParams" class="system-info__state muted text-sm">
+        读取这些参数需要「存储管理」权限：接口 <span class="mono">GET /v1/system/settings/list</span> 由
+        <span class="mono">PERMISSION_STORAGE_MANAGE</span> 把关，当前账号没有这项权限。
+      </p>
+      <p v-else-if="loading && settings.length === 0" class="system-info__state muted text-sm">加载中…</p>
       <AppEmpty
         v-else-if="settings.length === 0"
         size="sm"

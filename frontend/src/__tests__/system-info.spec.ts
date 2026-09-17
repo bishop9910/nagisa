@@ -3,11 +3,15 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 
 import ManageSystemInfo from '@/views/manage/ManageSystemInfo.vue'
+import { useAuthStore } from '@/stores/auth'
 
 /**
  * 系统信息页是只读的：它取代了原来那个「运行参数」编辑器——那些参数在服务端没有任何
  * 逻辑回读，写进去也不生效，所以页面不再提供任何写回入口，只展示真正生效的值。
  */
+
+/** 存储管理（1<<10）+ 系统信息（1<<11）：管理员默认两样都有。 */
+const ADMIN_MASK = 1024 | 2048
 
 function stubApi(routes: Record<string, () => unknown>): string[] {
   const calls: string[] = []
@@ -62,8 +66,13 @@ const settings = {
   ],
 }
 
-async function mountView() {
+async function mountView(permissionsMask = ADMIN_MASK) {
   setActivePinia(createPinia())
+  const auth = useAuthStore()
+  auth.setSession({
+    accessToken: 'token',
+    user: { username: 'admin', nickname: '超级管理员', role: 'ROLE_ADMIN', permissionsMask: String(permissionsMask) } as never,
+  })
   const wrapper = mount(ManageSystemInfo)
   await flushPromises()
   return wrapper
@@ -128,5 +137,22 @@ describe('系统信息页', () => {
     expect(text).toContain('读取失败')
     expect(text).toContain('重试')
     expect(text).toContain('生效的策略与上限')
+  })
+
+  // 列表接口在服务端由 storage_manage 把关（写入才是 system_manage），
+  // 只有「系统信息」权限的账号不该发出这个注定 403 的请求。
+  it('没有存储管理权限时不请求参数列表，并说明原因', async () => {
+    const calls = stubApi({
+      'GET /v1/system/info': () => info,
+      'GET /v1/system/health': () => ({ status: 'ok', checks: {} }),
+      'GET /v1/system/settings/list': () => settings,
+    })
+
+    const wrapper = await mountView(2048)
+
+    expect(calls).not.toContain('GET /v1/system/settings/list')
+    expect(wrapper.text()).toContain('需要「存储管理」权限')
+    // 公开信息照旧展示。
+    expect(wrapper.text()).toContain('生效的策略与上限')
   })
 })

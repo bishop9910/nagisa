@@ -318,7 +318,7 @@ var permissionCatalog = []struct {
 	{v1.Permission_PERMISSION_USER_MANAGE, "user_manage", "账号管理", "创建、修改、禁用、删除账号并分配权限", "admin"},
 	{v1.Permission_PERMISSION_AUDIT_READ, "audit_read", "审计日志", "查看操作审计记录", "admin"},
 	{v1.Permission_PERMISSION_STORAGE_MANAGE, "storage_manage", "存储管理", "查看全局存储统计并执行维护任务", "admin"},
-	{v1.Permission_PERMISSION_SYSTEM_MANAGE, "system_manage", "系统管理", "修改系统级运行参数", "admin"},
+	{v1.Permission_PERMISSION_SYSTEM_MANAGE, "system_manage", "系统信息", "查看系统信息、运行状态与运行参数", "admin"},
 }
 
 // PermissionEntry describes one permission for client rendering.
@@ -360,7 +360,7 @@ type RolePreset struct {
 var rolePresets = []RolePreset{
 	{
 		Role: RoleAdmin, Name: "admin", Display: "超级管理员",
-		Desc: "内置最高权限账号，可管理所有账号与系统设置",
+		Desc: "内置最高权限账号，可管理所有账号与系统信息",
 		Rank: RankAdmin, Perms: PermAll,
 	},
 	{

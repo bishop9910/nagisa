@@ -185,7 +185,7 @@ export const PERMISSION_META: PermissionMeta[] = [
   { name: 'PERMISSION_USER_MANAGE', bit: 1 << 8, machine: 'user_manage', display: '账号管理', description: '创建与维护账号并分配权限', category: 'admin' },
   { name: 'PERMISSION_AUDIT_READ', bit: 1 << 9, machine: 'audit_read', display: '审计日志', description: '查看操作审计记录', category: 'admin' },
   { name: 'PERMISSION_STORAGE_MANAGE', bit: 1 << 10, machine: 'storage_manage', display: '存储管理', description: '查看全局统计并执行维护任务', category: 'admin' },
-  { name: 'PERMISSION_SYSTEM_MANAGE', bit: 1 << 11, machine: 'system_manage', display: '系统管理', description: '修改系统级运行参数', category: 'admin' },
+  { name: 'PERMISSION_SYSTEM_MANAGE', bit: 1 << 11, machine: 'system_manage', display: '系统信息', description: '查看系统信息、运行状态与运行参数', category: 'admin' },
 ]
 
 export const PERMISSION_ALL = 4095

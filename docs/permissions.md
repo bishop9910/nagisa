@@ -8,7 +8,7 @@ Nagisa 的授权分三层：**账号级**（角色 + 等级 + 权限位掩码）
 
 | 角色 | 机器名 | 默认等级 | 中文名 | 默认权限集合 | 位掩码 | 说明 |
 | --- | --- | --- | --- | --- | --- | --- |
-| `ROLE_ADMIN` | `admin` | 1000（固定） | 超级管理员 | 全部 12 项 | 4095 | 内置最高权限账号，可管理所有账号与系统设置；任何其他账号都无法管理它，它自己也改不了自己的资料 |
+| `ROLE_ADMIN` | `admin` | 1000（固定） | 超级管理员 | 全部 12 项 | 4095 | 内置最高权限账号，可管理所有账号与系统信息；任何其他账号都无法管理它，它自己也改不了自己的资料 |
 | `ROLE_MANAGER` | `manager` | 500 | 管理员 | `view` `download` `upload` `edit` `delete` `trash_manage` `share` `acl_manage` `user_manage` `audit_read` `storage_manage` | 2047 | 由上级管理员提拔，可管理权限低于自己的账号；默认不含 `system_manage` |
 | `ROLE_USER` | `user` | 100 | 普通用户 | `view` `download` `upload` `edit` `delete` `trash_manage` `share` `acl_manage` | 255 | 管理自己的文件，不能管理其他账号 |
 | `ROLE_GUEST` | `guest` | 10 | 访客 | `view` `download` | 3 | 默认只读，仅可浏览与下载；**内置访客账号锁死**，见第 3 节与 7.3 |
@@ -40,7 +40,7 @@ Nagisa 的授权分三层：**账号级**（角色 + 等级 + 权限位掩码）
 | `PERMISSION_USER_MANAGE` | `user_manage` | 256 (1<<8) | 账号管理 | 创建、修改、禁用、删除账号并分配权限 | `admin` |
 | `PERMISSION_AUDIT_READ` | `audit_read` | 512 (1<<9) | 审计日志 | 查看操作审计记录 | `admin` |
 | `PERMISSION_STORAGE_MANAGE` | `storage_manage` | 1024 (1<<10) | 存储管理 | 查看全局存储统计并执行维护任务 | `admin` |
-| `PERMISSION_SYSTEM_MANAGE` | `system_manage` | 2048 (1<<11) | 系统管理 | 修改系统级运行参数 | `admin` |
+| `PERMISSION_SYSTEM_MANAGE` | `system_manage` | 2048 (1<<11) | 系统信息 | 查看系统信息、运行状态与运行参数 | `admin` |
 
 常见组合值：只读 `3`、可上传的访客 `7`、普通用户满配 `255`、管理员默认 `2047`、全量 `4095`。
 
