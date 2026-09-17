@@ -40,20 +40,18 @@ const visible = ref(false)
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--neutral-900);
-  color: #fff;
+  /* 反色浮层：浅色主题深底白字，深色主题浅底深字，两套主题下都和背景拉开。 */
+  background: var(--inverse-surface);
+  color: var(--inverse-text);
+  border: 1px solid color-mix(in srgb, var(--inverse-text) 16%, transparent);
   font-size: var(--text-2xs);
+  font-weight: 560;
   padding: 5px var(--space-2);
   border-radius: var(--radius-sm);
   white-space: nowrap;
   z-index: var(--z-toast);
   pointer-events: none;
   box-shadow: var(--shadow-md);
-}
-
-:root[data-theme='dark'] .tooltip__bubble {
-  background: var(--surface-3);
-  color: var(--text-strong);
 }
 
 .tooltip__bubble--top {

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /** 按钮：统一高度、圆角、按压反馈与加载态。 */
-import { computed } from 'vue'
+import { computed, useSlots } from 'vue'
 import AppIcon from './AppIcon.vue'
 
 const props = withDefaults(
@@ -22,7 +22,10 @@ const props = withDefaults(
 
 defineEmits<{ (e: 'click', event: MouseEvent): void }>()
 
-const isIconOnly = computed(() => Boolean(props.icon) && !props.label && !props.iconRight)
+const slots = useSlots()
+
+// 带默认插槽的按钮即使有 icon 也不是「仅图标」：漏掉这一条会把按钮文字整个丢掉。
+const isIconOnly = computed(() => Boolean(props.icon) && !props.label && !props.iconRight && !slots.default)
 </script>
 
 <template>
@@ -148,12 +151,12 @@ const isIconOnly = computed(() => Boolean(props.icon) && !props.label && !props.
 }
 
 .btn--danger {
-  background: var(--danger-600);
-  color: #fff;
+  background: var(--danger-solid);
+  color: var(--accent-contrast);
 }
 
 .btn--danger:hover:not(:disabled) {
-  background: var(--danger-500);
+  background: var(--danger-solid-hover);
 }
 
 .btn.is-active {

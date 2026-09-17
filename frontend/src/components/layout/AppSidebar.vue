@@ -47,7 +47,7 @@ const manageNav = computed<NavItem[]>(() => {
   if (auth.canReadAudit) items.push({ name: 'manage-audit', label: '审计日志', icon: 'list-checks' })
   if (auth.canManageStorage) items.push({ name: 'manage-storage', label: '存储与维护', icon: 'database' })
   if (auth.canManageUsers) items.push({ name: 'manage-permissions', label: '角色与权限', icon: 'shield-check' })
-  if (auth.canManageSystem) items.push({ name: 'manage-settings', label: '系统设置', icon: 'sliders' })
+  if (auth.canManageSystem) items.push({ name: 'manage-settings', label: '系统信息', icon: 'server' })
   return items
 })
 

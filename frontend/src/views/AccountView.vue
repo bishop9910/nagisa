@@ -1,6 +1,6 @@
 <script setup lang="ts">
 /** 账号设置：资料与用量、修改密码、登录会话与自身权限。 */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
 import AppAvatar from '@/components/ui/AppAvatar.vue'
 import AppBadge from '@/components/ui/AppBadge.vue'
@@ -14,6 +14,7 @@ import AppTabs from '@/components/ui/AppTabs.vue'
 import { authApi, errorText, usersApi } from '@/api'
 import type { PermissionCatalog, Session, UserStats } from '@/api/types'
 import { useAuthStore } from '@/stores/auth'
+import { useSystemStore } from '@/stores/system'
 import { useUiStore } from '@/stores/ui'
 import {
   PERMISSION_META,
@@ -27,6 +28,7 @@ import { formatBytes, formatDateTime, formatDuration, formatNumber, formatPercen
 
 const auth = useAuthStore()
 const ui = useUiStore()
+const system = useSystemStore()
 
 const tab = ref('profile')
 const stats = ref<UserStats | null>(null)
@@ -52,6 +54,20 @@ const grantedMeta = computed(() =>
 const unGrantedMeta = computed(() =>
   PERMISSION_META.filter((meta) => !hasPermission(auth.permissionsMask, meta.name)),
 )
+
+/**
+ * 超级管理员是内置账号：角色、等级与权限由部署固定，管理后台里不可被任何人管理，
+ * 它的口令也来自部署（auth.admin_password / ADMIN_PASSWORD），所以账号设置里不给它改密入口。
+ */
+const tabs = computed(() => {
+  const list = [
+    { key: 'profile', label: '资料与用量' },
+    { key: 'security', label: '密码' },
+    { key: 'sessions', label: '登录会话', badge: sessions.value.length },
+    { key: 'permissions', label: '我的权限', badge: grantedMeta.value.length },
+  ]
+  return auth.isSuperAdmin ? list.filter((item) => item.key !== 'security') : list
+})
 
 async function loadStats(): Promise<void> {
   statsLoading.value = true
@@ -115,8 +131,8 @@ async function changePassword(): Promise<void> {
     passwordError.value = '请填写当前密码与新密码'
     return
   }
-  if (passwordForm.value.next.length < 8) {
-    passwordError.value = '新密码至少 8 位'
+  if ([...passwordForm.value.next].length < system.minPasswordLength) {
+    passwordError.value = `新密码至少 ${system.minPasswordLength} 位`
     return
   }
   if (passwordForm.value.next !== passwordForm.value.confirm) {
@@ -141,6 +157,14 @@ onMounted(async () => {
   await Promise.all([loadStats(), loadCatalog()])
   await loadSessions()
 })
+
+// 身份可能在挂载之后才拿到（令牌恢复期间），切到超级管理员时把改密页收回来。
+watch(
+  () => auth.isSuperAdmin,
+  (isAdmin) => {
+    if (isAdmin && tab.value === 'security') tab.value = 'profile'
+  },
+)
 </script>
 
 <template>
@@ -210,19 +234,17 @@ onMounted(async () => {
           <AppIcon name="info" :size="14" />
           自助修改资料目前没有对应接口：账号信息需要管理员在「管理后台 → 账号管理」中维护。
         </p>
+
+        <p v-if="auth.isSuperAdmin" class="account__notice">
+          <AppIcon name="shield" :size="14" />
+          超级管理员是内置账号：角色、等级与权限由部署固定，管理后台里不可被任何人管理，所以这里不提供改密入口。
+          初始口令来自部署配置 auth.admin_password（留空则在首次启动日志里打印一次）。
+        </p>
       </aside>
 
       <section class="card account__panel">
         <header class="card__header">
-          <AppTabs
-            v-model="tab"
-            :tabs="[
-              { key: 'profile', label: '资料与用量' },
-              { key: 'security', label: '密码' },
-              { key: 'sessions', label: '登录会话', badge: sessions.length },
-              { key: 'permissions', label: '我的权限', badge: grantedMeta.length },
-            ]"
-          />
+          <AppTabs v-model="tab" :tabs="tabs" />
         </header>
 
         <div class="account__panel-body">
@@ -288,7 +310,7 @@ onMounted(async () => {
               </label>
               <label class="field">
                 <span class="field__label">新密码</span>
-                <AppInput v-model="passwordForm.next" type="password" autocomplete="new-password" placeholder="至少 8 位" />
+                <AppInput v-model="passwordForm.next" type="password" autocomplete="new-password" :placeholder="`至少 ${system.minPasswordLength} 位`" />
               </label>
               <label class="field">
                 <span class="field__label">确认新密码</span>

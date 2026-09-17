@@ -144,6 +144,8 @@ export interface AuthConfig {
   plainPasswordAllowed?: boolean
   /** 部署是否允许免登录的只读访客会话（AuthService.GuestLogin）。 */
   guestLoginEnabled?: boolean
+  /** 口令最小长度：账号、文件夹与分享口令共用这一个策略。 */
+  minPasswordLength?: number
   serverTime?: Timestamp
 }
 

@@ -84,6 +84,8 @@ const permissionOptions: { value: Permission; label: string }[] = [
 ]
 
 const canManageAll = computed(() => auth.canManageUsers)
+/** 服务端下发的口令最小长度（账号 / 文件夹 / 分享共用）。 */
+const minPasswordLength = computed(() => system.minPasswordLength)
 
 function shareUrl(share: Share): string {
   return resolveShareUrl(share, system.publicBaseUrl)
@@ -173,6 +175,11 @@ function togglePermission(permission: Permission, checked: boolean): void {
 async function saveEdit(): Promise<void> {
   const share = editTarget.value
   if (!share?.id) return
+  // 新口令同样受 auth.min_password_length 约束，先拦住再提交。
+  if (editForm.value.password && [...editForm.value.password].length < minPasswordLength.value) {
+    editError.value = `新密码至少 ${minPasswordLength.value} 位，或留空表示不修改`
+    return
+  }
   saving.value = true
   editError.value = ''
   try {
@@ -394,6 +401,9 @@ onMounted(() => {
             <AppButton size="sm" variant="ghost" @click="editForm.removePassword = true">清除密码</AppButton>
           </div>
           <AppInput v-else v-model="editForm.password" type="password" placeholder="设置新密码（留空表示不修改）" />
+          <span v-if="!editTarget?.passwordProtected || editForm.removePassword" class="field__hint">
+            至少 {{ minPasswordLength }} 位，留空表示不修改
+          </span>
         </div>
         <div class="field">
           <span class="field__label">过期时间</span>

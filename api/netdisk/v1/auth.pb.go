@@ -47,6 +47,10 @@ type AuthConfig struct {
 	// Whether the deployment hands out a read-only guest session without a
 	// password through AuthService.GuestLogin.
 	GuestLoginEnabled bool `protobuf:"varint,8,opt,name=guest_login_enabled,json=guestLoginEnabled,proto3" json:"guest_login_enabled,omitempty"`
+	// Minimum number of characters accepted in a password field. Account,
+	// folder and share passwords share this policy, so a client can reject a
+	// too short value before submitting it.
+	MinPasswordLength int32 `protobuf:"varint,9,opt,name=min_password_length,json=minPasswordLength,proto3" json:"min_password_length,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -135,6 +139,13 @@ func (x *AuthConfig) GetGuestLoginEnabled() bool {
 		return x.GuestLoginEnabled
 	}
 	return false
+}
+
+func (x *AuthConfig) GetMinPasswordLength() int32 {
+	if x != nil {
+		return x.MinPasswordLength
+	}
+	return 0
 }
 
 // Session is one refresh token family shown to its owner.
@@ -863,7 +874,7 @@ var File_netdisk_v1_auth_proto protoreflect.FileDescriptor
 const file_netdisk_v1_auth_proto_rawDesc = "" +
 	"\n" +
 	"\x15netdisk/v1/auth.proto\x12\n" +
-	"netdisk.v1\x1a\x15netdisk/v1/user.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa8\x03\n" +
+	"netdisk.v1\x1a\x15netdisk/v1/user.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd8\x03\n" +
 	"\n" +
 	"AuthConfig\x12&\n" +
 	"\x0fpassword_key_id\x18\x01 \x01(\tR\rpasswordKeyId\x12+\n" +
@@ -874,7 +885,8 @@ const file_netdisk_v1_auth_proto_rawDesc = "" +
 	"\x16plain_password_allowed\x18\x06 \x01(\bR\x14plainPasswordAllowed\x12;\n" +
 	"\vserver_time\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"serverTime\x12.\n" +
-	"\x13guest_login_enabled\x18\b \x01(\bR\x11guestLoginEnabled\"\xae\x02\n" +
+	"\x13guest_login_enabled\x18\b \x01(\bR\x11guestLoginEnabled\x12.\n" +
+	"\x13min_password_length\x18\t \x01(\x05R\x11minPasswordLength\"\xae\x02\n" +
 	"\aSession\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x0e\n" +
 	"\x02ip\x18\x02 \x01(\tR\x02ip\x12\x1d\n" +

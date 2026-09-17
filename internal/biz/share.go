@@ -145,7 +145,7 @@ func (uc *ShareUsecase) Create(ctx context.Context, in CreateShareInput) (*Share
 		return nil, ErrUnsupported
 	}
 	if in.NodeID == uuid.Nil {
-		return nil, ErrInvalidArgument
+		return nil, InvalidArgument("node_id is required")
 	}
 	node, access, err := uc.nodes.RequireAccess(ctx, caller, in.NodeID, PermShare)
 	if err != nil {
@@ -166,7 +166,7 @@ func (uc *ShareUsecase) Create(ctx context.Context, in CreateShareInput) (*Share
 	}
 	token := strings.TrimSpace(in.Token)
 	if token != "" && !validShareToken(token) {
-		return nil, ErrInvalidArgument
+		return nil, InvalidArgument("token must be 8-64 characters of [A-Za-z0-9_-]")
 	}
 	if token == "" {
 		token, err = randomToken()

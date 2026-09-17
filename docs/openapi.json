@@ -362,6 +362,11 @@
             "description": "Whether the deployment hands out a read-only guest session without a\n password through AuthService.GuestLogin.",
             "type": "boolean"
           },
+          "minPasswordLength": {
+            "description": "Minimum number of characters accepted in a password field. Account,\n folder and share passwords share this policy, so a client can reject a\n too short value before submitting it.",
+            "format": "int32",
+            "type": "integer"
+          },
           "passwordEncoding": {
             "description": "Encoding the client must apply to every password field, currently\n \"rsa-oaep-sha256\".",
             "type": "string"

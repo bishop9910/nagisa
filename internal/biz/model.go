@@ -34,6 +34,13 @@ var (
 	ErrAccountDisabled    = errors.Forbidden(v1.ErrorReason_NETDISK_ACCOUNT_DISABLED.String(), "account is disabled")
 )
 
+// InvalidArgument reports a rejected request field. The message names the
+// field and the rule it broke, so a client can show something better than the
+// generic "invalid argument" that the reason enum carries.
+func InvalidArgument(message string) error {
+	return errors.BadRequest(v1.ErrorReason_NETDISK_INVALID_ARGUMENT.String(), message)
+}
+
 // NodeLockedError reports that a node needs a password. The hint, when one is
 // configured, travels in the error metadata so a client can prompt without a
 // second round trip, and nothing else about the node is disclosed.

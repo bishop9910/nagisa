@@ -76,7 +76,8 @@ const emit = defineEmits<{ (e: 'update:modelValue', value: string): void }>()
 }
 
 .segmented__item.is-active {
-  background: var(--surface);
+  /* 选中项要比轨道更「浮起来」：深色主题下沿用 --surface 会反而比轨道更暗。 */
+  background: var(--surface-raised);
   color: var(--text-strong);
   box-shadow: var(--shadow-xs);
   font-weight: 600;

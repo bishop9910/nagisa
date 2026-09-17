@@ -87,7 +87,7 @@ src/
 | `/manage/audit` | manage-audit | 审计日志 | `audit_read` |
 | `/manage/storage` | manage-storage | 存储与维护 | `storage_manage` |
 | `/manage/permissions` | manage-permissions | 角色与权限 | `user_manage` |
-| `/manage/settings` | manage-settings | 系统设置 | `system_manage` |
+| `/manage/settings` | manage-settings | 系统信息（只读） | `system_manage` |
 
 管理后台同时接受 `/manage/...` 与 `/@manage/...` 两种写法（后者是别名），菜单里生成的
 链接一律是 `/manage/...`。缺少对应能力的路由会被守卫拦回概览页并给出提示。

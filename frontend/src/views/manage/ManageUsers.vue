@@ -29,6 +29,7 @@ import type { DropdownItem } from '@/components/ui/types'
 import { ApiError, errorText, usersApi } from '@/api'
 import type { Permission, PermissionCatalog, RolePreset, User, UserStats } from '@/api/types'
 import { useAuthStore } from '@/stores/auth'
+import { useSystemStore } from '@/stores/system'
 import { useUiStore } from '@/stores/ui'
 import {
   PERMISSION_META,
@@ -43,6 +44,7 @@ import { formatBytes, formatDateTime, formatNumber, formatPercent, toInt } from 
 
 const auth = useAuthStore()
 const ui = useUiStore()
+const system = useSystemStore()
 
 const users = ref<User[]>([])
 const loading = ref(false)
@@ -266,8 +268,8 @@ async function submitCreate(): Promise<void> {
     createError.value = '请填写用户名（4-32 位字母、数字、下划线）'
     return
   }
-  if (createForm.value.password.length < 8) {
-    createError.value = '初始密码至少 8 位'
+  if ([...createForm.value.password].length < system.minPasswordLength) {
+    createError.value = `初始密码至少 ${system.minPasswordLength} 位`
     return
   }
   createBusy.value = true
@@ -388,8 +390,8 @@ function openReset(user: User): void {
 async function submitReset(): Promise<void> {
   const user = resetTarget.value
   if (!user?.id) return
-  if (resetForm.value.password.length < 8) {
-    resetError.value = '新密码至少 8 位'
+  if ([...resetForm.value.password].length < system.minPasswordLength) {
+    resetError.value = `新密码至少 ${system.minPasswordLength} 位`
     return
   }
   resetBusy.value = true
@@ -668,7 +670,7 @@ onMounted(async () => {
         <AppField label="用户名" required hint="4-32 位，字母开头的字母数字与 _ . -">
           <AppInput v-model="createForm.username" placeholder="例如 alice" />
         </AppField>
-        <AppField label="初始密码" required hint="至少 8 位，浏览器内加密后提交">
+        <AppField label="初始密码" required :hint="`至少 ${system.minPasswordLength} 位，浏览器内加密后提交`">
           <AppInput v-model="createForm.password" type="password" placeholder="初始密码" />
         </AppField>
         <AppField label="昵称">
@@ -808,7 +810,7 @@ onMounted(async () => {
 
     <!-- 重置密码 -->
     <AppDialog v-model="resetOpen" title="重置密码" :description="resetTarget?.username" size="sm">
-      <AppField label="新密码" required hint="至少 8 位；提交前在浏览器内加密">
+      <AppField label="新密码" required :hint="`至少 ${system.minPasswordLength} 位；提交前在浏览器内加密`">
         <AppInput v-model="resetForm.password" type="password" />
       </AppField>
       <AppField label="要求首次登录修改密码" inline>

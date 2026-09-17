@@ -27,6 +27,8 @@ export const useSystemStore = defineStore('system', () => {
   const publicBaseUrl = computed(() => info.value?.publicBaseUrl || '')
   const signedUrlTtl = computed(() => info.value?.signedUrlTtlSeconds ?? 1800)
   const uploadSessionTtl = computed(() => info.value?.uploadSessionTtlSeconds ?? 86400)
+  /** 口令最小长度由服务端下发（账号 / 文件夹 / 分享共用），拿不到时按默认 8 兜底。 */
+  const minPasswordLength = computed(() => toInt(info.value?.auth?.minPasswordLength) || 8)
   const healthStatus = computed(() => health.value?.status || 'unknown')
 
   function hasFeature(feature: string): boolean {
@@ -83,6 +85,7 @@ export const useSystemStore = defineStore('system', () => {
     publicBaseUrl,
     signedUrlTtl,
     uploadSessionTtl,
+    minPasswordLength,
     healthStatus,
     storageAvailable,
     hasFeature,

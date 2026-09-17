@@ -22,7 +22,7 @@ const tabs = computed<ManageTab[]>(() => [
   { name: 'manage-audit', label: '审计', icon: 'list-checks', visible: auth.canReadAudit },
   { name: 'manage-storage', label: '存储与维护', icon: 'database', visible: auth.canManageStorage },
   { name: 'manage-permissions', label: '角色与权限', icon: 'shield-check', visible: auth.canManageUsers },
-  { name: 'manage-settings', label: '系统设置', icon: 'sliders', visible: auth.canManageSystem },
+  { name: 'manage-settings', label: '系统信息', icon: 'server', visible: auth.canManageSystem },
 ])
 
 const visibleTabs = computed(() => tabs.value.filter((tab) => tab.visible))
@@ -34,7 +34,7 @@ const visibleTabs = computed(() => tabs.value.filter((tab) => tab.visible))
       <div>
         <h1 class="page__title">管理后台</h1>
         <p class="page__desc">
-          账号、审计、存储与运行参数的集中入口。可管理的范围由调用方的权限与等级决定：
+          账号、审计、存储与系统信息的集中入口。可管理的范围由调用方的权限与等级决定：
           只能管理等级严格低于自己的账号，且只能授予自己持有的权限。
         </p>
       </div>

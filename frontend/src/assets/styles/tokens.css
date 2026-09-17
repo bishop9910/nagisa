@@ -61,6 +61,10 @@
   --text-faint: var(--neutral-400);
   --text-inverse: #ffffff;
 
+  /* 反色浮层（提示气泡一类）：浅色主题下是深底白字，深色主题翻转成浅底深字。 */
+  --inverse-surface: var(--neutral-900);
+  --inverse-text: #ffffff;
+
   --border: #e4e8f1;
   --border-strong: #d3d9e6;
   --border-subtle: #eef1f7;
@@ -72,6 +76,11 @@
   --accent-soft-hover: var(--brand-100);
   --accent-text: var(--brand-700);
   --accent-contrast: #ffffff;
+
+  /* 抬升表面（分段控件的选中项一类）与实底危险色：实底按钮的文字固定用白字。 */
+  --surface-raised: #ffffff;
+  --danger-solid: var(--danger-600);
+  --danger-solid-hover: #b91c1c;
 
   --focus-ring: 0 0 0 3px rgba(99, 102, 241, 0.28);
 
@@ -139,21 +148,26 @@
   --bg-app: #080c1a;
   --bg-sunken: #05080f;
   --surface: #101728;
-  --surface-2: #151d31;
-  --surface-3: #1b2440;
-  --surface-hover: #18203a;
-  --surface-active: #1d2748;
-  --overlay: rgba(2, 6, 23, 0.68);
+  --surface-2: #161f36;
+  --surface-3: #1e2846;
+  --surface-hover: #1c2643;
+  --surface-active: #223060;
+  --overlay: rgba(2, 6, 23, 0.72);
 
-  --text: #e6ebf5;
-  --text-strong: #f7f9fd;
-  --text-muted: #97a3bd;
-  --text-faint: #6b7897;
-  --text-inverse: #0b1120;
+  /* 深色主题下正文到提示文字都要拉开与底色的距离：三级文字依次为 13:1 / 8.3:1 / 5.6:1。 */
+  --text: #e8edf8;
+  --text-strong: #f8fafd;
+  --text-muted: #a6b1c9;
+  --text-faint: #8290af;
+  --text-inverse: #0d1424;
 
-  --border: #232c47;
-  --border-strong: #2f3a5c;
-  --border-subtle: #1b2340;
+  /* 深色主题下反转浮层：浅底深字，才在一屏深色里看得出来。 */
+  --inverse-surface: #e8edf8;
+  --inverse-text: #0d1424;
+
+  --border: #2b3654;
+  --border-strong: #465380;
+  --border-subtle: #232d4a;
 
   --brand-50: #1b2242;
   --brand-100: #232c56;
@@ -164,6 +178,11 @@
   --accent-soft-hover: rgba(99, 102, 241, 0.26);
   --accent-text: var(--brand-300);
   --accent-contrast: #ffffff;
+
+  /* 深色主题下「抬升」意味着更亮；危险实底不能沿用 --danger-600（浅红配白字只有 2.8:1）。 */
+  --surface-raised: #2a3763;
+  --danger-solid: #d13b3b;
+  --danger-solid-hover: #e05252;
 
   --success-50: rgba(16, 185, 129, 0.14);
   --warning-50: rgba(245, 158, 11, 0.16);

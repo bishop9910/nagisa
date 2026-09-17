@@ -56,6 +56,15 @@ describe('AppButton', () => {
     expect(wrapper.attributes('aria-label')).toBe('删除')
     expect(wrapper.text()).toBe('')
   })
+
+  // 踩过的坑：isIconOnly 只看 icon 与 label，不看插槽，于是所有「图标 + 文字」的
+  // 按钮（创建链接、上传、下载、搜索……）都只剩一个图标，文字和可访问名称全没了。
+  it('带插槽的按钮即使有 icon 也要保留文字', () => {
+    const wrapper = mount(AppButton, { props: { icon: 'share' }, slots: { default: '创建链接' } })
+    expect(wrapper.text()).toBe('创建链接')
+    expect(wrapper.classes()).not.toContain('btn--icon')
+    expect(wrapper.attributes('aria-label')).toBeUndefined()
+  })
 })
 
 describe('表单控件', () => {

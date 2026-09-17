@@ -2686,6 +2686,13 @@ components:
           description: |-
             Whether the deployment hands out a read-only guest session without a
              password through AuthService.GuestLogin.
+        minPasswordLength:
+          type: integer
+          description: |-
+            Minimum number of characters accepted in a password field. Account,
+             folder and share passwords share this policy, so a client can reject a
+             too short value before submitting it.
+          format: int32
       description: AuthConfig is the public pre-login parameter set.
     netdisk.v1.ChangePasswordRequest:
       required:

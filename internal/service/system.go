@@ -57,6 +57,7 @@ func (s *SystemService) GetSystemInfo(ctx context.Context, req *v1.GetSystemInfo
 			AccessTokenTtlSeconds:  int32(auth.AccessTokenTTL.Seconds()),
 			RefreshTokenTtlSeconds: int32(auth.RefreshTokenTTL.Seconds()),
 			PlainPasswordAllowed:   auth.PlainPasswordAllowed,
+			MinPasswordLength:      int32(auth.MinPasswordLength),
 			ServerTime:             now,
 		},
 		ServerTime:    now,

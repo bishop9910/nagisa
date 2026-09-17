@@ -73,19 +73,11 @@ func (shareChildrenPage) GetFilter() string { return "" }
 func (s *ShareService) CreateShare(ctx context.Context, req *v1.CreateShareRequest) (*v1.Share, error) {
 	nodeID, err := parseUUID(req.GetNodeId())
 	if err != nil {
-		return nil, err
+		return nil, biz.InvalidArgument("node_id must be a valid node id")
 	}
 	passwordHash := ""
 	if req.GetPassword() != "" {
-		plain, err := s.auth.DecodePassword(req.GetPassword())
-		if err != nil {
-			return nil, err
-		}
-		// A link password obeys auth.min_password_length like any other.
-		if err := s.auth.ValidatePassword(plain); err != nil {
-			return nil, err
-		}
-		passwordHash, err = s.uc.HashPassword(plain)
+		passwordHash, err = s.sharePasswordHash(req.GetPassword())
 		if err != nil {
 			return nil, err
 		}
@@ -316,11 +308,11 @@ func (s *ShareService) GetShare(ctx context.Context, req *v1.GetShareRequest) (*
 // existing share link.
 func (s *ShareService) UpdateShare(ctx context.Context, req *v1.UpdateShareRequest) (*v1.Share, error) {
 	if len(req.GetUpdateMask().GetPaths()) == 0 {
-		return nil, biz.ErrInvalidArgument
+		return nil, biz.InvalidArgument("update_mask must list at least one field")
 	}
 	id, err := parseUUID(req.GetShare().GetId())
 	if err != nil {
-		return nil, err
+		return nil, biz.InvalidArgument("share.id must be a valid share id")
 	}
 	in := biz.UpdateShareInput{ID: id}
 	for _, path := range req.GetUpdateMask().GetPaths() {
@@ -334,7 +326,7 @@ func (s *ShareService) UpdateShare(ctx context.Context, req *v1.UpdateShareReque
 		case "permissions", "permissions_mask":
 			perms, ok := parsePermissions(req.GetShare().GetPermissions(), req.GetShare().GetPermissionsMask())
 			if !ok {
-				return nil, biz.ErrInvalidArgument
+				return nil, biz.InvalidArgument("permissions or permissions_mask must select at least one permission")
 			}
 			in.Permissions = &perms
 		case "password":
@@ -343,16 +335,9 @@ func (s *ShareService) UpdateShare(ctx context.Context, req *v1.UpdateShareReque
 				break
 			}
 			if req.GetPassword() == "" {
-				return nil, biz.ErrInvalidArgument
+				return nil, biz.InvalidArgument("password is required unless remove_password is set")
 			}
-			plain, err := s.auth.DecodePassword(req.GetPassword())
-			if err != nil {
-				return nil, err
-			}
-			if err := s.auth.ValidatePassword(plain); err != nil {
-				return nil, err
-			}
-			hash, err := s.uc.HashPassword(plain)
+			hash, err := s.sharePasswordHash(req.GetPassword())
 			if err != nil {
 				return nil, err
 			}
@@ -376,7 +361,7 @@ func (s *ShareService) UpdateShare(ctx context.Context, req *v1.UpdateShareReque
 			status := parseShareStatus(req.GetShare().GetStatus())
 			in.Status = &status
 		default:
-			return nil, biz.ErrInvalidArgument
+			return nil, biz.InvalidArgument("update_mask names an unsupported field: " + path)
 		}
 	}
 	updated, err := s.uc.Update(ctx, in)
@@ -396,6 +381,21 @@ func (s *ShareService) DeleteShare(ctx context.Context, req *v1.DeleteShareReque
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
+}
+
+// sharePasswordHash decodes, policy-checks and hashes a link password. A link
+// password obeys auth.min_password_length like any other, and both CreateShare
+// and UpdateShare go through here so the same mistake always reports the same
+// reason.
+func (s *ShareService) sharePasswordHash(field string) (string, error) {
+	plain, err := s.auth.DecodePassword(field)
+	if err != nil {
+		return "", err
+	}
+	if err := s.auth.ValidatePassword(plain); err != nil {
+		return "", err
+	}
+	return s.uc.HashPassword(plain)
 }
 
 // resolve loads a share for an anonymous endpoint. A blank or unknown token is

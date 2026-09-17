@@ -132,9 +132,9 @@
 ⑥ POST /v1/auth/logout            → 吊销该 refreshToken，或吊销该账号全部会话
 ```
 
-**① 取握手参数。** `GET /v1/auth/config` 返回 `passwordKeyId`（密钥标识，用于发现密钥轮换）、`passwordEncoding`（固定 `rsa-oaep-sha256`）、`passwordPublicKey`（PEM 编码的 PKCS#8 RSA 公钥，3072 位）、`accessTokenTtlSeconds`、`refreshTokenTtlSeconds`、`plainPasswordAllowed`、`guestLoginEnabled`（是否允许免登录的只读访客会话）、`serverTime`。
+**① 取握手参数。** `GET /v1/auth/config` 返回 `passwordKeyId`（密钥标识，用于发现密钥轮换）、`passwordEncoding`（固定 `rsa-oaep-sha256`）、`passwordPublicKey`（PEM 编码的 PKCS#8 RSA 公钥，3072 位）、`accessTokenTtlSeconds`、`refreshTokenTtlSeconds`、`plainPasswordAllowed`、`guestLoginEnabled`（是否允许免登录的只读访客会话）、`minPasswordLength`（`auth.min_password_length`，账号、文件夹与分享口令共用的最小长度）、`serverTime`。
 
-**② 加密密码。** 所有密码字段（登录、改密、建号、重置密码、文件夹密码、分享密码）都必须发送 **RSA-OAEP(SHA-256) 密文的 base64**。服务端只在 `auth.allow_plain_password` 为 true 时才接受明文，生产环境必须保持 false。
+**② 加密密码。** 所有密码字段（登录、改密、建号、重置密码、文件夹密码、分享密码）都必须发送 **RSA-OAEP(SHA-256) 密文的 base64**。服务端只在 `auth.allow_plain_password` 为 true 时才接受明文，生产环境必须保持 false。口令长度不足 `minPasswordLength` 时客户端应当直接拒绝提交，不要等服务端回一句 `NETDISK_INVALID_ARGUMENT`。
 
 ```bash
 # openssl 1.1.1+
@@ -174,7 +174,7 @@ Go 客户端的关键两步是 `x509.ParsePKIXPublicKey` 与 `rsa.EncryptOAEP(sh
 | HTTP | `GET /v1/auth/config` |
 | 鉴权 | 公开 |
 | 请求 | 无 |
-| 回复 | `AuthConfig`：`passwordKeyId`、`passwordEncoding`、`passwordPublicKey`、`accessTokenTtlSeconds`、`refreshTokenTtlSeconds`、`plainPasswordAllowed`、`guestLoginEnabled`、`serverTime` |
+| 回复 | `AuthConfig`：`passwordKeyId`、`passwordEncoding`、`passwordPublicKey`、`accessTokenTtlSeconds`、`refreshTokenTtlSeconds`、`plainPasswordAllowed`、`guestLoginEnabled`、`minPasswordLength`、`serverTime` |
 | 错误 | — |
 
 ### `Login`
@@ -185,7 +185,7 @@ Go 客户端的关键两步是 `x509.ParsePKIXPublicKey` 与 `rsa.EncryptOAEP(sh
 | 鉴权 | 公开 |
 | 请求 | `username`（必填）、`password`（必填，RSA 密文 base64）、`ip`、`user_agent`、`remember_me` |
 | 回复 | `LoginReply`：`accessToken`、`refreshToken`、`tokenType`、`expiresIn`、`refreshExpiresIn`、`user` |
-| 错误 | `NETDISK_INVALID_ARGUMENT`（用户名为空、密码为空或无法解密）、`NETDISK_UNAUTHENTICATED`（账号不存在或密码不匹配，两种情况返回同一个错误）、`NETDISK_ACCOUNT_DISABLED`（账号被禁用或已删除） |
+| 错误 | `NETDISK_INVALID_ARGUMENT`（用户名为空、密码为空或无法解密、口令短于 `minPasswordLength`）、`NETDISK_UNAUTHENTICATED`（账号不存在或密码不匹配，两种情况返回同一个错误）、`NETDISK_ACCOUNT_DISABLED`（账号被禁用或已删除） |
 
 ### `GuestLogin`
 
@@ -244,7 +244,7 @@ Go 客户端的关键两步是 `x509.ParsePKIXPublicKey` 与 `rsa.EncryptOAEP(sh
 | 鉴权 | 需要令牌 |
 | 请求 | `current_password`（必填，RSA 密文）、`new_password`（必填，RSA 密文） |
 | 回复 | 空对象 |
-| 错误 | `NETDISK_INVALID_ARGUMENT`（字段为空、密文无法解密、新密码短于 `auth.min_password_length`）、`NETDISK_UNAUTHENTICATED`（当前密码不匹配） |
+| 错误 | `NETDISK_INVALID_ARGUMENT`（字段为空、密文无法解密、新密码短于 `minPasswordLength`）、`NETDISK_UNAUTHENTICATED`（当前密码不匹配） |
 
 成功后账号的 `must_change_password` 被清除，并且**该账号其它所有刷新会话被吊销**。
 
@@ -784,9 +784,11 @@ Go 客户端的关键两步是 `x509.ParsePKIXPublicKey` 与 `rsa.EncryptOAEP(sh
 | 鉴权 | 需要令牌 + 节点上的 `PERMISSION_SHARE`；要授予下载能力还需 `PERMISSION_DOWNLOAD`，授予上传能力需节点是文件夹且持有 `PERMISSION_UPLOAD` |
 | 请求 | `node_id`（必填）、`name`、`description`、`permissions[]` 或 `permissions_mask`（缺省 `view`+`download`）、`password`（RSA 密文）、`password_hint`、`expires_at`（零值 = 永不过期）、`max_downloads`（0 = 不限）、`token`（可选，自定义令牌） |
 | 回复 | `Share`：`id`、`token`、`node_id`、`owner_id`、`name`、`description`、`permissions`、`permissions_mask`、`password_protected`、`password_hint`、`expires_at`、`max_downloads`、`download_count`、`view_count`、`status`、`url`、`editable`、`created_at` 等 |
-| 错误 | `NETDISK_UNAUTHENTICATED`、`NETDISK_UNSUPPORTED`（`storage.allow_public_share` 为 false）、`NETDISK_INVALID_ARGUMENT`（`node_id` 缺失、自定义令牌非法：长度 8–64 且只含 `[A-Za-z0-9_-]`）、`NETDISK_PERMISSION_DENIED`（节点上无 `share`、能力超出自身权限或超出节点类型限制）、`NETDISK_NOT_FOUND`、`NETDISK_ALREADY_EXISTS`（令牌已被占用） |
+| 错误 | `NETDISK_UNAUTHENTICATED`、`NETDISK_UNSUPPORTED`（`storage.allow_public_share` 为 false）、`NETDISK_INVALID_ARGUMENT`（`node_id` 不是合法 id、自定义令牌非法：长度 8–64 且只含 `[A-Za-z0-9_-]`、`password` 无法解密或短于 `minPasswordLength`）、`NETDISK_PERMISSION_DENIED`（节点上无 `share`、能力超出自身权限或超出节点类型限制）、`NETDISK_NOT_FOUND`、`NETDISK_ALREADY_EXISTS`（令牌已被占用） |
 
 `url` 由 `web.public_base_url` + `web.share_path_prefix`（默认 `/s`）+ 令牌拼成。传入的能力会被裁剪到 `view`/`download`/`upload` 范围内，空集合回落到 `view|download`。
+
+`NETDISK_INVALID_ARGUMENT` 的 `message` 会点名出错的字段，例如 `token must be 8-64 characters of [A-Za-z0-9_-]`、`password must be at least 8 characters`、`node_id must be a valid node id`；客户端应当原样展示这句，而不是只显示 reason。这两条规则都可以在提交前本地判断：令牌用 `^[A-Za-z0-9_-]{8,64}$`，口令长度取 `GET /v1/auth/config` 的 `minPasswordLength`（缺省 8）。
 
 ### `ListShares`
 
@@ -862,7 +864,7 @@ Go 客户端的关键两步是 `x509.ParsePKIXPublicKey` 与 `rsa.EncryptOAEP(sh
 | 鉴权 | 需要令牌；分享属主或 `PERMISSION_USER_MANAGE` |
 | 请求 | `share`（必填，`share.id` 指定目标）、`update_mask`（必填）。支持的路径：`name`、`description`、`permissions`、`permissions_mask`、`password`、`password_hint`、`expires_at`、`max_downloads`、`status`；另有 `password`（RSA 密文）与 `remove_password` |
 | 回复 | `Share` |
-| 错误 | `NETDISK_INVALID_ARGUMENT`（未给 mask、路径不支持、`password` 路径没给密码、能力字段非法、`expires_at` 为零值表示清除过期时间）、`NETDISK_PERMISSION_DENIED`（非属主、能力超出自身权限）、`NETDISK_NOT_FOUND` |
+| 错误 | `NETDISK_INVALID_ARGUMENT`（未给 mask、路径不支持、`password` 路径没给密码、`password` 短于 `minPasswordLength`、能力字段非法、`expires_at` 为零值表示清除过期时间；`message` 会点名具体字段）、`NETDISK_PERMISSION_DENIED`（非属主、能力超出自身权限）、`NETDISK_NOT_FOUND` |
 
 ### `DeleteShare`
 
@@ -921,7 +923,7 @@ Go 客户端的关键两步是 `x509.ParsePKIXPublicKey` 与 `rsa.EncryptOAEP(sh
 | HTTP | `GET /v1/system/info` |
 | 鉴权 | 公开 |
 | 请求 | 无 |
-| 回复 | `SystemInfo`：`name`、`version`、`api_version`、`features[]`、`max_upload_size`、`default_chunk_size`、`min_chunk_size`、`max_inline_size`、`upload_session_ttl_seconds`、`signed_url_ttl_seconds`、`signed_url_max_ttl_seconds`、`upload_modes[]`、`storage_backend`、`database_backend`、`default_visibility`、`registration_enabled`（本部署恒为 false，账号只能由管理员创建）、`auth`（同 `AuthConfig`）、`server_time`、`public_base_url` |
+| 回复 | `SystemInfo`：`name`、`version`、`api_version`、`features[]`、`max_upload_size`、`default_chunk_size`、`min_chunk_size`、`max_inline_size`、`upload_session_ttl_seconds`、`signed_url_ttl_seconds`、`signed_url_max_ttl_seconds`、`upload_modes[]`、`storage_backend`、`database_backend`、`default_visibility`、`registration_enabled`（本部署恒为 false，账号只能由管理员创建）、`auth`（同 `AuthConfig`，含口令公钥与 `minPasswordLength`）、`server_time`、`public_base_url` |
 | 错误 | — |
 
 ### `HealthCheck`
@@ -1145,7 +1147,7 @@ Go 客户端的关键两步是 `x509.ParsePKIXPublicKey` 与 `rsa.EncryptOAEP(sh
 | `reason` | HTTP | 含义 |
 | --- | --- | --- |
 | `NETDISK_NOT_FOUND` | 404 | 资源不存在，或对调用方不可见（未授权访问受保护分享同样返回它，避免泄露存在性） |
-| `NETDISK_INVALID_ARGUMENT` | 400 | 请求体或字段不合法：名称非法、id 未提供或格式错误、`filter`/`order_by`/`page_token` 非法、密码字段无法解密或被 mask 指定的字段不支持 |
+| `NETDISK_INVALID_ARGUMENT` | 400 | 请求体或字段不合法：名称非法、id 未提供或格式错误、`filter`/`order_by`/`page_token` 非法、密码字段无法解密或过短、被 mask 指定的字段不支持。`message` 会点名出错的字段（如 `password must be at least 8 characters`），客户端应原样展示；只看到 `invalid argument` 说明该处还没有写具体的说明 |
 | `NETDISK_UNAUTHENTICATED` | 401 | 未携带令牌，或令牌无效、过期；登录时账号不存在或密码不匹配也返回它 |
 | `NETDISK_PERMISSION_DENIED` | 403 | 已认证但缺少所需权限，或调用方无法管理目标；也用于「文件夹/分享密码错误」 |
 | `NETDISK_CONFLICT` | 409 | 与当前状态冲突（通用冲突，另有更具体的同名冲突） |

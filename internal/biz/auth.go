@@ -2,6 +2,7 @@ package biz
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -28,6 +29,7 @@ type AuthConfig struct {
 	RefreshTokenTTL      time.Duration
 	PlainPasswordAllowed bool
 	GuestLoginEnabled    bool
+	MinPasswordLength    int
 }
 
 // AuthUsecaseOptions carries the credential policy taken from configuration.
@@ -98,6 +100,7 @@ func (uc *AuthUsecase) Config() AuthConfig {
 		RefreshTokenTTL:      uc.refreshTTL,
 		PlainPasswordAllowed: uc.plainAllowed,
 		GuestLoginEnabled:    uc.guestAuto,
+		MinPasswordLength:    uc.minPassword,
 	}
 }
 
@@ -113,11 +116,11 @@ func (uc *AuthUsecase) NodeTokenTTL() time.Duration { return uc.nodeTTL }
 // DecodePassword turns a client supplied password field into clear text.
 func (uc *AuthUsecase) DecodePassword(field string) (string, error) {
 	if field == "" {
-		return "", ErrInvalidArgument
+		return "", InvalidArgument("password is required")
 	}
 	plain, err := uc.box.Decode(field, uc.plainAllowed)
 	if err != nil {
-		return "", ErrInvalidArgument
+		return "", InvalidArgument("password must be the RSA-OAEP(SHA-256) encrypted, base64 encoded ciphertext")
 	}
 	return plain, nil
 }
@@ -125,7 +128,7 @@ func (uc *AuthUsecase) DecodePassword(field string) (string, error) {
 // ValidatePassword applies the configured password policy.
 func (uc *AuthUsecase) ValidatePassword(plain string) error {
 	if len([]rune(plain)) < uc.minPassword {
-		return ErrInvalidArgument
+		return InvalidArgument(fmt.Sprintf("password must be at least %d characters", uc.minPassword))
 	}
 	return nil
 }

@@ -45,7 +45,8 @@ const tone = computed(() => toneForKind(kind.value))
 }
 
 .file-icon--brand {
-  color: var(--brand-600);
+  /* 用语义色：深色主题下 brand-600 压在深色底上几乎看不出颜色。 */
+  color: var(--accent-text);
 }
 
 .file-icon--brand.file-icon--boxed {
@@ -92,7 +93,8 @@ const tone = computed(() => toneForKind(kind.value))
   height: 14px;
   border-radius: var(--radius-pill);
   background: var(--warning-600);
-  color: #fff;
+  /* 深色主题的 --warning-600 是亮黄，白字锁形几乎看不见，跟着主题翻转字色。 */
+  color: var(--text-inverse);
   display: inline-flex;
   align-items: center;
   justify-content: center;

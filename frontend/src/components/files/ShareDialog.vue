@@ -35,6 +35,8 @@ const existing = ref<Share[]>([])
 const loadingList = ref(false)
 const creating = ref(false)
 const error = ref('')
+/** 列已有链接失败与新建失败是两件事，分开提示，避免互相误导。 */
+const listError = ref('')
 
 const form = ref({
   name: '',
@@ -47,6 +49,11 @@ const form = ref({
   unlimitedDownloads: true,
   customToken: '',
 })
+
+/** 服务端 `auth.min_password_length`，拿不到时按默认 8。 */
+const minPasswordLength = computed(() => system.minPasswordLength)
+/** 与后端 validShareToken 一致：8-64 位且只含 [A-Za-z0-9_-]。 */
+const SHARE_TOKEN_PATTERN = /^[A-Za-z0-9_-]{8,64}$/
 
 const isFolder = computed(() => props.node?.kind === 'NODE_KIND_FOLDER')
 const publicShareAllowed = computed(() => system.hasFeature('public_share') || system.info === null)
@@ -72,11 +79,13 @@ function togglePermission(permission: Permission, checked: boolean): void {
 async function loadShares(): Promise<void> {
   if (!props.node?.id) return
   loadingList.value = true
+  listError.value = ''
   try {
     const page = await sharesApi.listSharesByNode(props.node.id, { pageSize: 50 })
     existing.value = page.shares ?? []
   } catch (err) {
-    error.value = errorText(err)
+    listError.value = errorText(err)
+    existing.value = []
   } finally {
     loadingList.value = false
   }
@@ -105,6 +114,18 @@ async function submit(): Promise<void> {
     error.value = '至少选择一项能力'
     return
   }
+  const password = form.value.password
+  // 服务端的 auth.min_password_length 对分享口令同样生效，先在这里拦住，
+  // 否则只会拿到一句笼统的「请求参数不合法（invalid argument）」。
+  if (password && [...password].length < minPasswordLength.value) {
+    error.value = `访问密码至少 ${minPasswordLength.value} 位，或留空表示不需要密码`
+    return
+  }
+  const customToken = form.value.customToken.trim()
+  if (customToken && !SHARE_TOKEN_PATTERN.test(customToken)) {
+    error.value = '自定义令牌需要 8-64 位，只能用字母、数字、- 和 _（留空则由服务端生成）'
+    return
+  }
   creating.value = true
   error.value = ''
   try {
@@ -113,11 +134,11 @@ async function submit(): Promise<void> {
       name: form.value.name.trim() || undefined,
       description: form.value.description.trim() || undefined,
       permissions: form.value.permissions,
-      password: form.value.password || undefined,
+      password: password || undefined,
       passwordHint: form.value.passwordHint.trim() || undefined,
       expiresAt: fromLocalInputValue(form.value.expiresAt),
       maxDownloads: form.value.unlimitedDownloads ? 0 : Math.max(0, Number(form.value.maxDownloads) || 0),
-      token: form.value.customToken.trim() || undefined,
+      token: customToken || undefined,
     })
     ui.toast.success('分享链接已创建')
     form.value = { ...form.value, password: '', passwordHint: '', customToken: '', expiresAt: '' }
@@ -154,6 +175,7 @@ watch(
   async (open) => {
     if (!open) return
     error.value = ''
+    listError.value = ''
     form.value = {
       name: props.node?.name ?? '',
       description: '',
@@ -167,6 +189,15 @@ watch(
     }
     await loadShares()
   },
+)
+
+// 表单一改，上一次的提示就不该继续挂着。
+watch(
+  form,
+  () => {
+    error.value = ''
+  },
+  { deep: true },
 )
 </script>
 
@@ -189,6 +220,7 @@ watch(
         <AppButton size="sm" variant="ghost" icon="refresh" label="刷新" @click="loadShares" />
       </header>
       <p v-if="loadingList" class="muted text-xs">加载中…</p>
+      <p v-else-if="listError" class="field__error text-xs">加载失败：{{ listError }}</p>
       <p v-else-if="existing.length === 0" class="muted text-xs">还没有分享链接</p>
       <ul v-else class="share__list">
         <li v-for="share in existing" :key="share.id" class="share__item">
@@ -239,7 +271,8 @@ watch(
         </label>
         <label class="field">
           <span class="field__label">自定义令牌</span>
-          <AppInput v-model="form.customToken" placeholder="8-64 位字母数字（可选）" />
+          <AppInput v-model="form.customToken" placeholder="留空则由服务端生成" />
+          <span class="field__hint">8-64 位，只能用字母、数字、<span class="mono">-</span> 和 <span class="mono">_</span>（可选）</span>
         </label>
         <div class="field form-row-full">
           <span class="field__label">能力</span>
@@ -257,6 +290,7 @@ watch(
         <label class="field">
           <span class="field__label">访问密码</span>
           <AppInput v-model="form.password" type="password" placeholder="留空表示无需密码" />
+          <span class="field__hint">至少 {{ minPasswordLength }} 位（服务端策略），留空表示链接不需要密码</span>
         </label>
         <label class="field">
           <span class="field__label">密码提示</span>

@@ -36,6 +36,7 @@ func (s *AuthService) GetAuthConfig(ctx context.Context, _ *v1.GetAuthConfigRequ
 		RefreshTokenTtlSeconds: int32(cfg.RefreshTokenTTL.Seconds()),
 		PlainPasswordAllowed:   cfg.PlainPasswordAllowed,
 		GuestLoginEnabled:      cfg.GuestLoginEnabled,
+		MinPasswordLength:      int32(cfg.MinPasswordLength),
 		ServerTime:             timestamppb.Now(),
 	}, nil
 }
