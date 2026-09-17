@@ -130,10 +130,13 @@ curl -s http://127.0.0.1:8000/v1/system/info     # 期望 storage_backend = s3
 | 场景 | 用哪个客户端 | 结果 |
 | --- | --- | --- |
 | `PresignPutObject`（分片直传） | `public_endpoint`（未配置时用 `endpoint`） | 浏览器拿到的 PUT 地址主机名与签名一致，可以成功上传 |
-| `PresignGetObject`（下载直链） | 同上 | 浏览器可以直接下载 |
+| `PresignGetObject`（下载直链 / 预览） | 只在配了 `public_endpoint` 时使用 | 浏览器直接向对象存储取字节 |
 | `PutObject` / `GetObject` / `ComposeObject` / `RemovePrefix` | 始终 `endpoint` | 服务端自己的读写走内网，不受影响 |
+| `GetDownloadUrl` / `GetPreviewUrl`（未配 `public_endpoint`） | 后端自己转发：`/v1/files/{id}/content` | 与接口同源的自签名地址，任何设备都能打开 |
 
-只配 `endpoint`（不配 `public_endpoint`）而浏览器又到不了该地址时，最典型的表现是：`POST /v1/files/uploads/create` 正常返回 `parts[].uploadUrl`，但浏览器 PUT 该地址失败（DNS/连接超时）。此时要么补上 `public_endpoint`（例如反向代理出来的 `https://files.example.com`），要么把 `upload.default_mode` 改成 `proxy`。
+**未配 `public_endpoint` 时，下载与预览不会走对象存储直链。** 因为此时预签名 URL 签的是服务端自己用的地址（默认 `127.0.0.1:8333`），把它交给另一台设备，对方只会去连它自己的回环地址，浏览器直接报连接被拒绝或超时。代码在这种情况下改用服务端自己的流式端点（带 `Range` 支持，可拖动进度条），代价是字节过一遍服务端。
+
+只配 `endpoint`（不配 `public_endpoint`）而浏览器又到不了该地址时，剩下的典型表现是：`POST /v1/files/uploads/create` 正常返回 `parts[].uploadUrl`，但浏览器 PUT 该地址失败（DNS/连接超时）。此时要么补上 `public_endpoint`（例如反向代理出来的 `https://files.example.com`），要么把 `upload.default_mode` 改成 `proxy`。
 
 另外两点容易被忽略：
 
@@ -291,16 +294,21 @@ server {
 
 - **`proxy_buffering off` 与 `proxy_request_buffering off`**：前者保证 zip/流式下载边生成边下发，后者避免上传在代理层被完整缓存。
 - **Host 头**：预签名 URL 的签名绑定主机名。若通过代理暴露对象存储，`public_endpoint` 必须写成浏览器看到的地址（如 `https://netdisk.example.com/storage` 对应的主机），并且代理转发时保持同一个 Host。
-- TLS 在代理层终止；后端的 `web.public_base_url` 要写成 `https://...`，否则它会用 http 拼出签名地址，浏览器会因混合内容拦截。
+- TLS 在代理层终止；后端的 `web.public_base_url` 留空最稳（下发的都是相对地址，不存在混合内容问题）。确实要填就得写成浏览器实际访问的地址并带 `https://`，写成 `http://` 会让 https 页面里的下载与预览被浏览器按混合内容拦掉。同理，若通过代理把对象存储也暴露出去，`public_endpoint` 也要写成 https 的主机名。
 - gRPC 端口（默认 9000）如果没有对外需求，不要暴露到公网。
 
 ### 3.2 public_base_url 的作用范围
 
+**默认留空，这时服务端下发的全是相对地址**（`/v1/files/...`、`/s/<token>`），浏览器按当前 origin 解析——同一个部署从局域网 IP、localhost、反代域名访问都正确。填一个固定值就等于把其它设备指向那个地址：写成 `http://127.0.0.1:8000` 时，别的设备上的预览和下载会去连它自己的本机。
+
 | 使用点 | 影响 |
 | --- | --- |
+| `GetDownloadUrl` / `GetPreviewUrl` | 只有未配 `object_storage.public_endpoint` 时才用得上；留空即相对路径（见 1.5） |
 | `GetArchiveUrl` | 打包下载地址的前缀；留空时是相对路径 `/v1/files/...` |
-| `SystemInfo.public_base_url` | 前端读取它来决定 API 与分享地址 |
+| `SystemInfo.public_base_url` | 前端读取它来决定 API 与分享地址；为空时前端回落到 `window.location.origin` |
 | `Share.url` | 分享链接的绝对地址（`public_base_url` + `share_path_prefix` + `token`） |
+
+确实需要绝对地址的场景（例如分享链接要被贴到另一个域名下的页面里、或有客户端不解析相对地址）：把它写成浏览器实际访问的地址，并带上 scheme。放在 TLS 反代后面时要写 `https://...`，写成 `http://` 会让页面在 https 下因为混合内容被拦。
 
 ### 3.3 CORS
 
@@ -357,9 +365,9 @@ caddy run --config deploy/Caddyfile
 
 | 配置 | 值 |
 | --- | --- |
-| `web.public_base_url` | `https://192.168.1.23`（见 3.2 的作用范围） |
+| `web.public_base_url` | **留空**（默认）。相对地址由浏览器按当前 origin 解析，局域网 IP 与反代域名同时可用；填固定值反而会把别的设备指到错的地方（见 3.2） |
 | `web.cors_origins` | 同源部署留空；用 Vite 调试时加前端源站，如 `https://192.168.1.23:5173` |
-| `data.object_storage.public_endpoint` | 浏览器可达的对象存储地址（经反代时参照 3.1 的 `/storage/`，注意签名绑定主机名） |
+| `data.object_storage.public_endpoint` | 想让浏览器直连对象存储才填；留空时下载与预览由后端转发，不需要额外开端口，也不会和 https 页面撞混合内容（见 1.5） |
 
 **② 前端内置兜底（纯 HTTP 也能登录）**
 

@@ -45,6 +45,11 @@ type ObjectStore interface {
 	ComposeObject(ctx context.Context, dstKey string, srcKeys []string, contentType string) (string, error)
 	PresignPutObject(ctx context.Context, key string, expires time.Duration) (*PresignedRequest, error)
 	PresignGetObject(ctx context.Context, key, fileName, contentType, disposition string, expires time.Duration) (*PresignedRequest, error)
+	// PublicHost is the host presigned URLs are signed for when the operator
+	// declared a browser facing address. Empty means they are signed for the
+	// endpoint the server itself uses, so a client on another machine cannot
+	// redeem them.
+	PublicHost() string
 	HealthCheck(ctx context.Context) error
 }
 
@@ -988,6 +993,10 @@ func (uc *FileUsecase) DownloadURL(ctx context.Context, nodeID uuid.UUID, expire
 	if fileName == "" {
 		fileName = node.Name
 	}
+	_ = access
+	if !browserCanReachStorage(uc.store) {
+		return streamedContentURL(uc.signer, node, caller.UserID.String(), uc.presignTTL(expiresIn), inline, fileName)
+	}
 	disposition := "attachment"
 	if inline {
 		disposition = "inline"
@@ -996,7 +1005,6 @@ func (uc *FileUsecase) DownloadURL(ctx context.Context, nodeID uuid.UUID, expire
 	if err != nil {
 		return nil, err
 	}
-	_ = access
 	return &SignedURL{
 		URL:       req.URL,
 		Method:    req.Method,
@@ -1018,6 +1026,9 @@ func (uc *FileUsecase) PreviewURL(ctx context.Context, nodeID uuid.UUID, expires
 	}
 	if node.Kind != NodeKindFile || !IsPreviewable(node.MimeType) {
 		return nil, ErrUnsupported
+	}
+	if !browserCanReachStorage(uc.store) {
+		return streamedContentURL(uc.signer, node, caller.UserID.String(), uc.presignTTL(expiresIn), true, node.Name)
 	}
 	req, err := uc.store.PresignGetObject(ctx, node.StorageKey, node.Name, node.MimeType, "inline", uc.presignTTL(expiresIn))
 	if err != nil {
@@ -1208,23 +1219,31 @@ func (uc *FileUsecase) ContentURL(ctx context.Context, nodeID uuid.UUID, expires
 	if err != nil {
 		return nil, err
 	}
-	if uc.signer == nil {
-		return nil, ErrUnsupported
-	}
 	if node.Kind != NodeKindFile || node.StorageKey == "" {
 		return nil, ErrUnsupported
 	}
 	if fileName == "" {
 		fileName = node.Name
 	}
+	return streamedContentURL(uc.signer, node, caller.UserID.String(), uc.presignTTL(expiresIn), inline, fileName)
+}
+
+// streamedContentURL mints the signed URL of the server's own streaming route.
+// It stays relative unless web.public_base_url is configured, so the browser
+// resolves it against the origin it actually used; that is what lets the same
+// build serve localhost, a LAN address and a reverse proxy host name. subject
+// is the acting account or, for a share link, the share.
+func streamedContentURL(signer URLSigner, node *Node, subject string, ttl time.Duration, inline bool, fileName string) (*SignedURL, error) {
+	if signer == nil {
+		return nil, ErrUnsupported
+	}
 	extra := "attachment"
 	if inline {
 		extra = "inline"
 	}
-	ttl := uc.presignTTL(expiresIn)
 	path := "/v1/files/" + node.ID.String() + "/content"
 	expires := time.Now().Add(ttl)
-	signed, _, err := uc.signer.Sign("content", "GET", path, caller.UserID.String(), node.ID.String(), extra, expires)
+	signed, _, err := signer.Sign("content", "GET", path, subject, node.ID.String(), extra, expires)
 	if err != nil {
 		return nil, err
 	}
@@ -1237,6 +1256,16 @@ func (uc *FileUsecase) ContentURL(ctx context.Context, nodeID uuid.UUID, expires
 		FileName:  fileName,
 		MimeType:  node.MimeType,
 	}, nil
+}
+
+// browserCanReachStorage reports whether a presigned object storage URL is
+// worth handing to a browser. Storage only has a browser facing address when
+// object_storage.public_endpoint is configured; without it the signed host is
+// the one the server talks to (127.0.0.1 by default), so another device would
+// be sent to its own loopback and refuse the connection. Downloads and previews
+// go through the server's own streaming route instead.
+func browserCanReachStorage(store ObjectStore) bool {
+	return store.PublicHost() != ""
 }
 
 // CopyNodesInput describes a copy batch.

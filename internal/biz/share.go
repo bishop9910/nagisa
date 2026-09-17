@@ -491,11 +491,17 @@ func (uc *ShareUsecase) Download(ctx context.Context, share *Share, node *Node, 
 	if fileName == "" {
 		fileName = node.Name
 	}
+	ttl := uc.presignTTL(expiresIn)
+	// Same rule as a signed-in download: a presigned object storage URL is only
+	// usable from the browser when the deployment declared a public endpoint,
+	// otherwise it would send a visitor on another device to its own loopback.
+	if !browserCanReachStorage(uc.store) {
+		return streamedContentURL(uc.signer, node, share.ID.String(), ttl, inline, fileName)
+	}
 	disposition := "attachment"
 	if inline {
 		disposition = "inline"
 	}
-	ttl := uc.presignTTL(expiresIn)
 	req, err := uc.store.PresignGetObject(ctx, node.StorageKey, fileName, node.MimeType, disposition, ttl)
 	if err != nil {
 		return nil, err

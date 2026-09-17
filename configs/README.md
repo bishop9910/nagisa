@@ -45,7 +45,7 @@
 | `bucket` | `nagisa` | 用哪个桶 |
 | `region` | 空 | 一般是空，交给 SDK 默认 |
 | `use_ssl` | `false` | 连对象存储是否走 HTTPS |
-| `public_endpoint` | 空 | **给浏览器用的地址**。浏览器能直连的地址和服务端不一样时必须填（比如走 CDN/反代），否则预签名 URL 签名对不上，直传直下会失败 |
+| `public_endpoint` | 空 | **给浏览器用的对象存储地址**。填了它，下载直链和预览就用这个地址的预签名 URL（走 CDN/反代/独立域名时必须填，否则签名对不上）；**留空则下载与预览改由后端自己转发**（`/v1/files/{id}/content`），因为此时预签名 URL 签的是服务端自己用的地址（默认 `127.0.0.1:8333`），别的设备打开只会打到它自己的回环地址上 |
 | `auto_create_bucket` | `true` | 启动时桶不存在就自动创建，开发方便 |
 | `prefix` | `netdisk` | 所有对象的公共前缀，一个桶放多个部署时用来隔离 |
 | `presign_ttl` | `1800s` | 分片上传的预签名 URL 和下载直链的默认有效期（客户端要更长会被夹到它的 4 倍以内） |
@@ -106,7 +106,7 @@
 | `root` | `./web/dist` | 前端构建产物目录 |
 | `index` | `index.html` | 入口文件，也是前端路由的回退页 |
 | `spa_fallback` | `true` | 访问未知路径时返回入口页（前端路由需要）。`/v1/`、`/docs/` 例外，永远 404 |
-| `public_base_url` | `http://127.0.0.1:8000` | 拼分享链接和签名 URL 用的绝对前缀，上线要改成真实域名 |
+| `public_base_url` | 空 | 拼分享链接和签名 URL 用的绝对前缀。**默认留空，此时服务端下发的都是相对地址**，浏览器按当前 origin 解析——同一个部署从局域网 IP、localhost、反代域名访问都正确。填成 `http://127.0.0.1:8000` 这种固定值，等于让别的设备去访问它自己的本机 |
 | `path_prefix` | `/` | 前端挂在哪个路径下 |
 | `cors_origins` | `http://127.0.0.1:5173` 等 | 允许跨域的前端源站。**留空则不下发任何 CORS 头**，浏览器前端就调不通 |
 | `cors_methods` | GET/POST/… | 预检回复里允许的 HTTP 方法 |
@@ -124,7 +124,7 @@
 3. **有三个默认值是坑**：
    - `jwt_secret` 空 → 重启后令牌全失效；
    - `object_storage.endpoint` 与服务 `grpc.addr` 别撞端口：默认值（`8333` 与 `9000`）是错开的，改过端口后要自己确认；
-   - `public_endpoint` 空 → 浏览器直连地址和服务端不同时签名对不上。
+   - `public_endpoint` 空 → 下载与预览会走后端转发（能正常工作，只是流量过服务端），要让浏览器直连对象存储才填它；分片上传的直传地址始终用它签名，浏览器到不了就会失败。
 
 ## 上线前必须改的
 
@@ -135,10 +135,10 @@
 | `auth.password_private_key_file` | 持久卷里的路径 |
 | `data.database.source` | 持久卷里的路径 |
 | `data.object_storage.endpoint` / `access_key` / `secret_key` / `bucket` | 真实的对象存储信息 |
-| `data.object_storage.public_endpoint` | 浏览器可达的地址（与服务端不同时必填） |
+| `data.object_storage.public_endpoint` | 浏览器可达的对象存储地址；不打算让浏览器直连就留空（下载与预览自动由后端转发） |
 | `data.object_storage.auto_create_bucket` | `false`（桶预先建好） |
 | `data.database.auto_migrate` | `false`（迁移单独执行） |
 | `server.grpc.addr` | 与对象存储端口错开（SeaweedFS 占 `8333`/`9333`/`8888`/`8080`） |
-| `web.public_base_url` | 真实域名 |
+| `web.public_base_url` | 一般留空（相对地址最稳）；只有反代暴露了另一个域名、且需要服务端拼绝对地址时才填 |
 | `web.cors_origins` | 真实前端源站 |
 | `auth.allow_plain_password` | 保持 `false` |

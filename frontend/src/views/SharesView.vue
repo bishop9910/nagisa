@@ -25,6 +25,7 @@ import { SHARE_STATUS_LABEL, SHARE_STATUS_TONE, maskFromPermissions } from '@/ut
 import { formatDateTime, formatExpiry, fromLocalInputValue, toInt, toLocalInputValue } from '@/utils/format'
 import { eq, has, orderBy } from '@/utils/filter'
 import { copyText } from '@/utils/download'
+import { resolveShareUrl } from '@/utils/share'
 
 const auth = useAuthStore()
 const system = useSystemStore()
@@ -85,9 +86,7 @@ const permissionOptions: { value: Permission; label: string }[] = [
 const canManageAll = computed(() => auth.canManageUsers)
 
 function shareUrl(share: Share): string {
-  if (share.url) return share.url
-  const base = system.publicBaseUrl || (typeof window === 'undefined' ? '' : window.location.origin)
-  return `${base.replace(/\/+$/, '')}/s/${share.token ?? ''}`
+  return resolveShareUrl(share, system.publicBaseUrl)
 }
 
 function buildFilter(): string | undefined {

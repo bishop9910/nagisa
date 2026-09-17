@@ -77,13 +77,15 @@ func newObjectStore(c *conf.Data) (*objectStore, error) {
 	if store.presignTTL <= 0 {
 		store.presignTTL = defaultPresignTTL
 	}
-	if pub := oc.GetPublicEndpoint(); pub != "" && pub != oc.GetEndpoint() {
-		public, err := newS3Client(pub, oc.GetUseSsl(), oc)
-		if err != nil {
-			return nil, err
+	if pub := oc.GetPublicEndpoint(); pub != "" {
+		if pub != oc.GetEndpoint() {
+			public, err := newS3Client(pub, oc.GetUseSsl(), oc)
+			if err != nil {
+				return nil, err
+			}
+			store.public = public
+			store.publicPresign = s3.NewPresignClient(public)
 		}
-		store.public = public
-		store.publicPresign = s3.NewPresignClient(public)
 		store.publicHost, _ = splitEndpoint(pub, oc.GetUseSsl())
 	}
 	if oc.GetAutoCreateBucket() {
@@ -492,6 +494,12 @@ func (o *objectStore) presigner() *s3.PresignClient {
 	}
 	return o.presign
 }
+
+// PublicHost reports the host presigned URLs are valid for once the operator
+// declared a browser facing address. An empty value means they are signed for
+// the endpoint the server itself uses, which a browser on another machine
+// cannot reach.
+func (o *objectStore) PublicHost() string { return o.publicHost }
 
 // contentTypeOrNil keeps an empty content type out of the request so the
 // backend can apply its own default.

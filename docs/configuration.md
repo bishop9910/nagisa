@@ -121,7 +121,7 @@ SQLite 的 DSN 会被自动追加 `_txlock=immediate`（除非你自己写了 `_
 | `bucket` | string | 空 → `netdisk` | `nagisa` | 桶名 |
 | `region` | string | 空 | `us-east-1` | 留空用 SDK 默认 |
 | `use_ssl` | bool | `false` | `true` | 用 HTTPS 连对象存储 |
-| `public_endpoint` | string | 空 → 用 `endpoint` | `files.example.com` | **给浏览器用的地址**。预签名 URL 的签名绑定了 Host，浏览器可达的地址与服务端不同时必须设置，否则签名校验失败 |
+| `public_endpoint` | string | 空 → 用 `endpoint` | `files.example.com` | **给浏览器用的对象存储地址**。预签名 URL 的签名绑定了 Host。留空时下载与预览不走对象存储直链，而是由后端通过 `/v1/files/{id}/content` 转发（因为此时签出来的 Host 是服务端自己用的那个，默认 `127.0.0.1:8333`，别的设备打不开）；分片上传的直传地址始终按它签名 |
 | `auto_create_bucket` | bool | `false` | `true` | 启动时缺桶就建。开发方便，生产建议预先建好 |
 | `prefix` | string | 空 → 无前缀 | `netdisk` | 所有对象键的公共前缀，便于一个桶放多个部署 |
 | `presign_ttl` | Duration | `0` → `30m` | `1800s` | 分片预签名 PUT 与下载 URL 的默认有效期 |
@@ -201,7 +201,7 @@ RSA 密钥对的轮换：换掉 `password_private_key_file` 指向的文件会�
 | `root` | string | 空 → `./web/dist` | `./web/dist` | 构建产物目录；目录不存在只打 WARN，不影响启动 |
 | `index` | string | 空 → `index.html` | `index.html` | 目录请求与 SPA 回退使用的文件 |
 | `spa_fallback` | bool | `false` | `true` | 未知路径返回 index（前端路由需要）；关掉则返回 404。`/v1/`、`/docs/` 始终返回 404，不会被回退成 HTML |
-| `public_base_url` | string | 空 → 只输出相对地址 | `https://netdisk.example.com` | 拼接分享链接与签名 URL 的绝对前缀 |
+| `public_base_url` | string | 空 → 只输出相对地址 | `https://netdisk.example.com` | 拼接分享链接与签名 URL 的绝对前缀。**保持为空最稳**：相对地址由浏览器按当前 origin 解析，同一个部署从局域网 IP、localhost、反代域名访问全都正确；填成固定值就等于把其它设备指向那个地址 |
 | `path_prefix` | string | 空 → `/` | `/` | SPA 挂载的路径前缀 |
 | `cors_origins` | []string | 空 → 不下发任何 CORS 头 | `https://app.example.com` | 允许的源站，`*` 表示全部（与 `cors_allow_credentials` 互斥） |
 | `cors_methods` | []string | 空 → `GET,POST,PUT,PATCH,DELETE,OPTIONS` | 同默认 | 预检回复的 `Access-Control-Allow-Methods` |
@@ -369,7 +369,9 @@ web:
   enabled: true
   root: /srv/nagisa/web/dist
   spa_fallback: true
-  public_base_url: https://netdisk.example.com
+  # 留空即可：下发的都是相对地址，浏览器按当前 origin 解析。
+  # 只有分享链接需要贴到别的域名下、或客户端不解析相对地址时才填这里。
+  public_base_url: ""
   cors_origins:
     - https://netdisk.example.com
   cors_allow_credentials: false

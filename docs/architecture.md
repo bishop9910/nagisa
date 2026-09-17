@@ -236,10 +236,13 @@ tx, err := d.db.Tx(ctx)
 | 场景 | 签名方 | 说明 |
 | --- | --- | --- |
 | 分片直传 | `PresignPutObject` | 返回 PUT 地址与过期时刻；**不**附带 Content-Type 头，否则会破坏签名 |
-| 文件下载 | `PresignGetObject` | 通过 `response-content-disposition` / `response-content-type` 参数控制文件名与内联/附件 |
-| 服务端自签名的流式下载 | `internal/pkg/urlsign` | 绑定方法、路径、主体、节点、处置方式与过期时刻，用于 `/content` 与 `/archive` |
+| 文件下载 / 预览（配了 `public_endpoint`） | `PresignGetObject` | 通过 `response-content-disposition` / `response-content-type` 参数控制文件名与内联/附件 |
+| 文件下载 / 预览（未配 `public_endpoint`） | `internal/pkg/urlsign` | 退回服务端自己的 `/content` 流式路由，见下 |
+| 文件夹打包下载 | `internal/pkg/urlsign` | 绑定方法、路径、主体、节点、处置方式与过期时刻，用于 `/content` 与 `/archive` |
 
-预签名 URL 的签名对象是**主机名**：URL 里出现哪个 host，签名就为哪个 host 计算。服务器访问对象存储的地址（`data.object_storage.endpoint`）与浏览器访问的地址（`public_endpoint`）不同时，必须配置 `public_endpoint`——`internal/data/storage.go` 会为它单独建一个 S3 客户端与 `PresignClient`，签名统一走这个「public」客户端（`presigner()`），否则浏览器拿到的地址校验必然失败。`public_endpoint` 为空或不等于 `endpoint` 时才会创建该客户端。寻址方式固定为 **path-style**，所以签名 URL 形如 `https://<public_endpoint>/<bucket>/<key>?X-Amz-...`。
+**没配 `public_endpoint` 时不要下发预签名 URL。** 此时 `presigner()` 用的是服务端自己的地址（默认 `127.0.0.1:8333`），把这种地址交给浏览器，在另一台设备上只会去连它自己的回环段，表现为「连接被拒绝」或者文件看着有、预览/下载打不开。所以 `FileUsecase.DownloadURL` / `PreviewURL` 与 `ShareUsecase.Download` 都先问一遍 `browserCanReachStorage()`：存储声明了浏览器可达的 host 才用预签名直链，否则改用 `streamedContentURL()` 自签一个 `/v1/files/{id}/content?...`（带 `Range` 支持，签名里绑定了节点、处置方式与主体）。这条路由的地址是相对的（除非 `web.public_base_url` 被显式配置），因此局域网 IP、localhost、反代域名都能用同一份配置打开。
+
+预签名 URL 的签名对象是**主机名**：URL 里出现哪个 host，签名就为哪个 host 计算。服务器访问对象存储的地址（`data.object_storage.endpoint`）与浏览器访问的地址（`public_endpoint`）不同时，必须配置 `public_endpoint`——`internal/data/storage.go` 会为它单独建一个 S3 客户端与 `PresignClient`，签名统一走这个「public」客户端（`presigner()`），否则浏览器拿到的地址校验必然失败。`public_endpoint` 不为空时才会创建该客户端（等于 `endpoint` 时不重复建，但仍然算「已声明浏览器可达」）。寻址方式固定为 **path-style**，所以签名 URL 形如 `https://<public_endpoint>/<bucket>/<key>?X-Amz-...`。
 
 有效期：`presign_ttl` 是基准（缺省 30 分钟），请求可以要求更短，但被夹在 `4 × presign_ttl` 以内；`SystemInfo.signed_url_ttl_seconds` 与 `signed_url_max_ttl_seconds` 就是这两者。分享链接的下载地址由 `ShareUsecase` 自己夹：请求值缺省 30 分钟，上限 4 小时。
 

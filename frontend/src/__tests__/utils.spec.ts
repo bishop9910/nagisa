@@ -21,6 +21,7 @@ import {
   PERMISSION_NODE_SCOPE,
   PERMISSION_SHARE_SCOPE,
 } from '@/utils/constants'
+import { resolveShareUrl } from '@/utils/share'
 
 describe('format 工具', () => {
   it('归一化 protojson 的 64 位整数（字符串或数字）', () => {
@@ -137,5 +138,28 @@ describe('权限位掩码', () => {
     expect(PERMISSION_ALL).toBe(4095)
     expect(PERMISSION_NODE_SCOPE).toBe(255)
     expect(PERMISSION_SHARE_SCOPE).toBe(7)
+  })
+})
+
+describe('分享链接', () => {
+  // 服务端 public_base_url 留空时下发的是 /s/<token>，直接复制出去是没法用的，
+  // 必须补成绝对地址；配了 public_base_url 时服务端给的就是绝对地址，原样用。
+  it('相对地址补成绝对地址', () => {
+    expect(resolveShareUrl({ url: '/s/abc123' })).toBe(`${window.location.origin}/s/abc123`)
+    expect(resolveShareUrl({ url: '/s/abc123' }, 'https://netdisk.example.com')).toBe(
+      'https://netdisk.example.com/s/abc123',
+    )
+  })
+
+  it('绝对地址原样返回', () => {
+    expect(resolveShareUrl({ url: 'https://netdisk.example.com/s/abc123' })).toBe(
+      'https://netdisk.example.com/s/abc123',
+    )
+  })
+
+  it('服务端没给 url 时用 token 拼', () => {
+    expect(resolveShareUrl({ token: 'tok-1' }, 'https://netdisk.example.com/')).toBe(
+      'https://netdisk.example.com/s/tok-1',
+    )
   })
 })

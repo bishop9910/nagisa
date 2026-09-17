@@ -16,6 +16,7 @@ import { useSystemStore } from '@/stores/system'
 import { useUiStore } from '@/stores/ui'
 import { SHARE_STATUS_LABEL, SHARE_STATUS_TONE } from '@/utils/constants'
 import { formatDateTime, formatExpiry, fromLocalInputValue, toInt } from '@/utils/format'
+import { resolveShareUrl } from '@/utils/share'
 
 const props = defineProps<{
   modelValue: boolean
@@ -82,9 +83,7 @@ async function loadShares(): Promise<void> {
 }
 
 function shareUrl(share: Share): string {
-  if (share.url) return share.url
-  const base = system.publicBaseUrl || window.location.origin
-  return `${base.replace(/\/+$/, '')}/s/${share.token ?? ''}`
+  return resolveShareUrl(share, system.publicBaseUrl)
 }
 
 async function copy(text: string, label: string): Promise<void> {

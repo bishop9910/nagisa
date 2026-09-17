@@ -163,6 +163,14 @@ src/
    真因完全看不出来。`api/files.ts` 的 `uploadSmallFile` 就是这么踩过一次：979 KB 的文件走内联
    上传必然失败，而大于 4 MiB 走分片（`uploadChunk` 字段名是对的）反而正常。
    `src/__tests__/files.spec.ts` 现在盯着这几个上传接口的请求体字段名。
+10. **预览 / 下载地址跟着浏览器走，不能拼域名**：服务端没配
+    `data.object_storage.public_endpoint` 时，`GetPreviewUrl`、`GetDownloadUrl` 返回的是
+    **相对地址**（后端自签的 `/v1/files/{id}/content?...`，带 `Range` 支持），直接塞进
+    `img.src` / `<a href>` 就对了。配了 `public_endpoint` 时才是对象存储的绝对直链。
+    早先只有预签名一条路，于是局域网里另一台设备拿到的地址是 `127.0.0.1:8333`，
+    打开就报连接被拒绝——现在由后端按「有没有声明浏览器可达的存储地址」自己选，
+    前端两边都不用管。同理 `Share.url` 也可能是 `/s/<token>` 这种相对形式，
+    复制/打开前要补成绝对地址：统一用 `utils/share.ts` 的 `resolveShareUrl()`。
 
 ## 7. 测试
 
