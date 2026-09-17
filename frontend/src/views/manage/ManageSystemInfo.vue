@@ -15,6 +15,7 @@ import { errorText, systemApi } from '@/api'
 import type { HealthStatus, SystemSetting } from '@/api/types'
 import { useAuthStore } from '@/stores/auth'
 import { useSystemStore } from '@/stores/system'
+import { VISIBILITY_LABEL } from '@/utils/constants'
 import { formatBytes, formatDateTime, formatDuration, toInt } from '@/utils/format'
 
 const auth = useAuthStore()
@@ -39,6 +40,18 @@ const canReadParams = computed(() => auth.canManageStorage)
 const uploadModeLabel = computed(() =>
   system.uploadModes.map((mode) => (mode === 'UPLOAD_MODE_PROXY' ? '代理上传' : '预签名上传')).join(' / '),
 )
+
+/** 可见范围也是枚举。 */
+const defaultVisibilityLabel = computed(() => {
+  const value = system.info?.defaultVisibility
+  return value ? (VISIBILITY_LABEL[value] ?? value) : '—'
+})
+
+/** 目录里有键、但没有落库值时显示「未登记」，免得一格空白。 */
+function valueOf(row: SystemSetting): string {
+  const value = (row.value ?? '').trim()
+  return value === '' ? '未登记' : value
+}
 
 const healthTone = computed(() => {
   const status = health.value?.status
@@ -72,7 +85,9 @@ function typeTone(type?: string): 'neutral' | 'brand' | 'info' | 'warning' {
 
 async function loadHealth(): Promise<void> {
   try {
-    health.value = await systemApi.healthCheck(false)
+    // 必须走 deep：浅检查只证明进程活着，它固定回 database=ok、object_storage=ok，
+    // 拿它当检查结果展示等于报假平安。
+    health.value = await systemApi.healthCheck(true)
   } catch (err) {
     health.value = { status: 'down', checks: { api: errorText(err) } }
   }
@@ -114,7 +129,7 @@ onMounted(() => void refresh())
       <header class="card__header">
         <div>
           <p class="card__title">服务与运行状态</p>
-          <p class="card__subtitle">来自 GET /v1/system/info 与 GET /v1/system/health</p>
+          <p class="card__subtitle">来自 GET /v1/system/info 与 GET /v1/system/health（深度检查，真实访问数据库与对象存储）</p>
         </div>
         <AppButton size="sm" variant="ghost" icon="refresh" :loading="probing" @click="refresh">重新读取</AppButton>
       </header>
@@ -140,7 +155,7 @@ onMounted(() => void refresh())
           <div class="stat">
             <span class="stat__label">健康状态</span>
             <span class="stat__value text-lg">
-              <AppBadge :tone="healthTone">{{ healthLabel }}</AppBadge>
+              <AppBadge :tone="healthTone">{{ probing && !health ? '检查中…' : healthLabel }}</AppBadge>
             </span>
             <span class="stat__hint">{{ checks.length }} 项依赖检查</span>
           </div>
@@ -261,8 +276,9 @@ onMounted(() => void refresh())
                 <dt>对象存储后端</dt>
                 <dd>
                   <span class="mono">{{ system.storageBackend }}</span>
+                  <!-- 这里只能说"已配置"：有没有配上名字不等于连得上，连通性看上面的依赖检查。 -->
                   <AppBadge :tone="system.storageAvailable ? 'success' : 'danger'" size="sm">
-                    {{ system.storageAvailable ? '可用' : '未配置' }}
+                    {{ system.storageAvailable ? '已配置' : '未配置' }}
                   </AppBadge>
                 </dd>
               </div>
@@ -272,7 +288,7 @@ onMounted(() => void refresh())
               </div>
               <div>
                 <dt>默认可见范围</dt>
-                <dd class="mono">{{ system.info?.defaultVisibility || '—' }}</dd>
+                <dd>{{ defaultVisibilityLabel }}</dd>
               </div>
               <div>
                 <dt>开放注册</dt>
@@ -339,7 +355,7 @@ onMounted(() => void refresh())
               </p>
               <p class="params__desc">{{ row.description || '没有说明' }}</p>
             </div>
-            <span class="params__value mono break-all">{{ row.value ?? '—' }}</span>
+            <span class="params__value mono break-all">{{ valueOf(row) }}</span>
           </li>
         </ul>
 

@@ -200,9 +200,15 @@ func (uc *SystemUsecase) Settings(ctx context.Context) ([]Setting, error) {
 	if err != nil {
 		return nil, err
 	}
+	// system.version is read only: nothing ever writes it, its value is the build
+	// the process is running.
+	derived := map[string]string{"system.version": uc.info.Version}
 	out := make([]Setting, 0, len(settingCatalog))
 	for _, s := range settingCatalog {
 		if v, ok := stored[s.Key]; ok {
+			s.Value = v
+		}
+		if v, ok := derived[s.Key]; ok {
 			s.Value = v
 		}
 		out = append(out, s)

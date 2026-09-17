@@ -40,7 +40,17 @@ const emit = defineEmits<{ (e: 'update:modelValue', value: string): void }>()
   align-items: center;
   gap: var(--space-1);
   border-bottom: 1px solid var(--border-subtle);
+  /* 只留横向滚动：overflow-x: auto 会把纵向也算成 auto，选中下划线只要溢出 1px
+     就会在标签栏里长出一条竖向滚动条，所以纵向彻底关掉。滚动条本身也藏起来，
+     横向靠滚轮 / 触控板 / 键盘焦点滚动，标签栏里不再出现一根灰条。 */
   overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .tabs__item {
@@ -72,7 +82,8 @@ const emit = defineEmits<{ (e: 'update:modelValue', value: string): void }>()
   position: absolute;
   left: var(--space-2);
   right: var(--space-2);
-  bottom: -1px;
+  /* 贴住底边而不是压出去：压到滚动容器外面就会被算成溢出。 */
+  bottom: 0;
   height: 2px;
   border-radius: var(--radius-pill);
   background: var(--accent);

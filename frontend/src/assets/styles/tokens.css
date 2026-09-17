@@ -5,6 +5,10 @@
  */
 
 :root {
+  /* 原生控件（滚动条、下拉列表、日期选择器）跟随主题：浅色主题也要显式声明，
+     留空会落回 color-scheme: normal，某些浏览器按系统深色画控件。 */
+  color-scheme: light;
+
   /* 品牌色阶（Indigo） */
   --brand-50: #eef2ff;
   --brand-100: #e0e7ff;

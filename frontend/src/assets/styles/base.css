@@ -64,6 +64,45 @@ textarea {
   color: inherit;
 }
 
+/*
+ * 原生控件的弹层（<select> 的下拉列表、日期选择器）是浏览器自己绘制的，不认我们挂在
+ * :root 上的颜色令牌，只跟 color-scheme 走。深色主题下弹出的列表会落回系统浅色底，
+ * 而选项文字继承的是页面上的白字，结果就是白底白字。这里把两套主题的颜色都显式钉死，
+ * 并把选中项的高亮换成品牌色（否则是系统蓝）。
+ */
+select {
+  accent-color: var(--accent);
+}
+
+select option {
+  background-color: var(--surface);
+  color: var(--text);
+}
+
+select option:disabled {
+  color: var(--text-faint);
+}
+
+/* 深色主题下原生日历/时钟图标是深色的，压在深色输入框上几乎看不见。 */
+:root[data-theme='dark'] input::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.6);
+}
+
+/* 搜索框自带的清除按钮与组件里的自定义按钮重复，而且深色主题下是深色图标看不清。 */
+input[type='search']::-webkit-search-cancel-button,
+input[type='search']::-webkit-search-decoration {
+  appearance: none;
+}
+
+/* 浏览器自动填充会强行刷上自己的浅色底，深色主题下就成了浅底白字。 */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text);
+  caret-color: var(--text);
+  box-shadow: 0 0 0 100px var(--surface) inset;
+}
+
 img,
 svg {
   display: block;
@@ -331,6 +370,18 @@ svg {
   gap: var(--space-4);
   padding: var(--space-4) var(--space-5);
   border-bottom: 1px solid var(--border-subtle);
+}
+
+/*
+ * 卡片头部里只放标签栏时（账号设置、传输列表），底部留白与标签栏自己的分隔线都是多余的：
+ * 去掉留白、去掉标签栏那条线，让卡片分隔线直接当下划线轨道，两者不会挤成两条平行线。
+ */
+.card__header:has(> .tabs:only-child) {
+  padding-bottom: 0;
+}
+
+.card__header:has(> .tabs:only-child) .tabs {
+  border-bottom: 0;
 }
 
 .card__title {

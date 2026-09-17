@@ -417,7 +417,7 @@ caddy run --config deploy/Caddyfile
 | `share.allow_public` | bool | 是 | `true` | 是否允许匿名访问分享链接 |
 | `trash.retention_days` | int | 是 | `30` | 回收站保留天数 |
 | `system.maintenance_interval` | string | 是 | `1h` | 维护任务间隔，例如 `1h` |
-| `system.version` | string | **否** | — | 当前构建版本（只读，写入返回 403） |
+| `system.version` | string | **否** | —（值取进程的构建版本，不入库） | 当前构建版本（只读，写入返回 403） |
 
 **重要提醒**：这些运行参数当前只被「读写与展示」——服务端没有任何逻辑回读它们来改变行为（上限、版本策略等仍由 `configs/config.yaml` 的 `upload.*`、`storage.*` 决定）。把它们当作待接入的运行时开关使用，不要指望改动立即生效。要改变实际行为，请改配置并重启。
 

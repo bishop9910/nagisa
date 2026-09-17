@@ -97,6 +97,10 @@ const value = computed(() => (props.modelValue === null || props.modelValue === 
   font-size: var(--text-sm);
   color: var(--text);
   cursor: pointer;
+  /* 选项名过长时在控件里省略，而不是把宽度顶开。 */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .select--lg .select__field {

@@ -330,35 +330,40 @@ defineExpose({ loadUsage })
     box-shadow: var(--shadow-xl);
   }
 
-  :global(.shell.is-mobile-open) .sidebar {
+  /* 祖先 `.shell` 属于父组件，只能靠 :global 选。整个选择器都要写进括号里：
+     `:global(X) Y` 里的 Y 会被编译器整段丢掉，规则就落到 X 自己身上了。 */
+  :global(.shell.is-mobile-open .sidebar) {
     transform: translateX(0);
   }
 }
 
-/* 折叠态：只保留图标，给内容区让出空间。 */
-:global(.shell.is-collapsed) .sidebar {
-  width: 68px;
-  padding: var(--space-4) var(--space-2);
-  align-items: center;
-}
+/* 折叠态：只保留图标，给内容区让出空间。这一段只在桌面宽度生效：窄屏下侧栏是
+   抽屉，抽屉里的图标窄条没有意义（而且那时折叠按钮本身也藏起来了）。 */
+@media (min-width: 769px) {
+  :global(.shell.is-collapsed .sidebar) {
+    width: 68px;
+    padding: var(--space-4) var(--space-2);
+    align-items: center;
+  }
 
-:global(.shell.is-collapsed) .sidebar__label,
-:global(.shell.is-collapsed) .sidebar__badge,
-:global(.shell.is-collapsed) .sidebar__brand-text,
-:global(.shell.is-collapsed) .sidebar__section-title,
-:global(.shell.is-collapsed) .sidebar__usage,
-:global(.shell.is-collapsed) .sidebar__warn,
-:global(.shell.is-collapsed) .sidebar__hint {
-  display: none;
-}
+  :global(.shell.is-collapsed .sidebar__label),
+  :global(.shell.is-collapsed .sidebar__badge),
+  :global(.shell.is-collapsed .sidebar__brand-text),
+  :global(.shell.is-collapsed .sidebar__section-title),
+  :global(.shell.is-collapsed .sidebar__usage),
+  :global(.shell.is-collapsed .sidebar__warn),
+  :global(.shell.is-collapsed .sidebar__hint) {
+    display: none;
+  }
 
-:global(.shell.is-collapsed) .sidebar__item {
-  justify-content: center;
-  padding: var(--space-2);
-}
+  :global(.shell.is-collapsed .sidebar__item) {
+    justify-content: center;
+    padding: var(--space-2);
+  }
 
-:global(.shell.is-collapsed) .sidebar__section,
-:global(.shell.is-collapsed) .sidebar__foot {
-  width: 100%;
+  :global(.shell.is-collapsed .sidebar__section),
+  :global(.shell.is-collapsed .sidebar__foot) {
+    width: 100%;
+  }
 }
 </style>
