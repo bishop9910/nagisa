@@ -10,6 +10,7 @@ import { errorText } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import { useSystemStore } from '@/stores/system'
 import { useUiStore } from '@/stores/ui'
+import { passwordEncryptionMode } from '@/utils/crypto'
 
 const route = useRoute()
 const router = useRouter()
@@ -24,6 +25,8 @@ const loading = ref(false)
 const error = ref('')
 /** 部署开启了免登录访客时，登录页同时提供「以访客身份浏览」。 */
 const guestAvailable = ref(false)
+/** 非安全上下文（局域网 http）下加密会走内置兜底实现，值得明说一句。 */
+const fallbackEncryption = ref(false)
 
 const redirect = computed(() => {
   const value = route.query.redirect
@@ -79,6 +82,7 @@ async function browseAsGuest(): Promise<void> {
 
 onMounted(async () => {
   void system.loadInfo()
+  fallbackEncryption.value = passwordEncryptionMode() === 'fallback'
   guestAvailable.value = await auth.guestLoginEnabled()
 })
 </script>
@@ -161,6 +165,15 @@ onMounted(async () => {
         <p v-if="error" class="login__error">
           <AppIcon name="alert-circle" :size="15" />
           {{ error }}
+        </p>
+
+        <p v-if="fallbackEncryption" class="login__warning">
+          <AppIcon name="alert-triangle" :size="15" />
+          <span>
+            当前地址不是安全上下文（http 且非 localhost），浏览器禁用了 WebCrypto，
+            已自动改用内置加密实现：口令仍以密文提交，但无法校验服务端身份。
+            建议给站点启用 HTTPS（见部署文档「局域网按 IP 访问」一节）。
+          </span>
         </p>
 
         <AppButton type="submit" variant="primary" size="lg" block :loading="loading" icon="logout">
@@ -351,6 +364,23 @@ onMounted(async () => {
   font-size: var(--text-2xs);
   color: var(--text-faint);
   line-height: 1.7;
+}
+
+.login__warning {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  background: var(--warning-50);
+  color: var(--warning-600);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  font-size: var(--text-2xs);
+  line-height: 1.7;
+}
+
+.login__warning svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
 }
 
 .login__divider {

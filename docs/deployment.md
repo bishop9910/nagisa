@@ -321,6 +321,59 @@ CORS 过滤器只在 `web.enabled` 为 true 时挂载，行为由 `web.cors_*` �
 - `cors_allow_credentials` 在令牌放在 `Authorization` 头的设计下不需要打开（浏览器不会因为没有它而拒绝 Bearer 请求），保持 false 最安全。
 - 浏览器直连对象存储的跨域由对象存储负责，与本配置无关（见 1.5）。
 
+### 3.4 局域网按 IP 访问：安全上下文与证书
+
+浏览器只在**安全上下文**（secure context）里提供 `crypto.subtle`，而 WebCrypto 是前端加密口令的唯一正路：
+
+| 访问地址 | 安全上下文 | `crypto.subtle` |
+| --- | --- | --- |
+| `https://netdisk.example.com` | 是 | 有 |
+| `http://localhost:8000`、`http://127.0.0.1:8000` | 是 | 有 |
+| `http://192.168.1.23:8000` | **否** | **没有** |
+| `http://nas.local:8000` | **否** | **没有** |
+
+所以局域网里用别的设备按 IP（或纯主机名）走 http 打开时，登录会直接报「无法加密口令」。这跟浏览器新旧无关——是服务端缺一个可信的 origin，浏览器按规范把 `subtle` 整个藏了起来（`crypto.getRandomValues` 还在，只有 `subtle` 没了）。
+
+同一个原因还会让 `navigator.clipboard` 失效：「复制链接」「复制权限值」这类按钮会静默失败。**配上 HTTPS 会一并解决**，不必单独修前端。
+
+三条路，按推荐度选一条。
+
+**① 加 TLS 终止（推荐）**
+
+仓库里给了一份可直接用的 Caddy 配置 `deploy/Caddyfile`（TLS 在 Caddy 终止，后端仍然是 `http://127.0.0.1:8000`），证书用 mkcert 签最省事：
+
+```powershell
+winget install FiloSottile.mkcert
+.\scripts\lan-tls.ps1                      # 自动取局域网 IP 签发；识别不准时用 -Ip 指定
+# 把 deploy/Caddyfile 第一行改成脚本打印的地址，然后：
+caddy run --config deploy/Caddyfile
+```
+
+脚本优先用 mkcert（会把本地 CA 装进本机信任库）；机器上没有 mkcert 时退回到 openssl 自建 CA。也可以完全不用外部证书：把 `tls` 那行改成 `tls internal`，执行一次 `caddy trust`，再把 Caddy 数据目录下 `pki/authorities/local/root.crt` 装到访问设备上。
+
+> ⚠️ **证书必须被访问方信任，这是最容易翻车的一步。** 手机上要真的把根证书装进系统信任库（Android：设置 → 安全 → 加密与凭据 → 安装证书 → CA 证书；iOS：装完还要在「通用 → 关于本机 → 证书信任设置」里打开完全信任）。如果只是在浏览器弹出的警告里点「继续访问」，那个 origin **仍然不算安全上下文**，`crypto.subtle` 依旧是 undefined——这正是「自签证书配了还是报无法加密」的原因。
+
+配上 HTTPS 后同步这几项，否则分享链接与预签名地址还会指回 `127.0.0.1`：
+
+| 配置 | 值 |
+| --- | --- |
+| `web.public_base_url` | `https://192.168.1.23`（见 3.2 的作用范围） |
+| `web.cors_origins` | 同源部署留空；用 Vite 调试时加前端源站，如 `https://192.168.1.23:5173` |
+| `data.object_storage.public_endpoint` | 浏览器可达的对象存储地址（经反代时参照 3.1 的 `/storage/`，注意签名绑定主机名） |
+
+**② 前端内置兜底（纯 HTTP 也能登录）**
+
+`frontend/src/utils/crypto.ts` 检测不到 `crypto.subtle` 时会退回到 `frontend/src/utils/rsa.ts`：一套自带的 SHA-256 + MGF1 + OAEP 填充 + BigInt 模幂，密文与 Go 侧 `rsa.EncryptOAEP(sha256.New(), ...)` 逐字节等价，后端不需要任何改动。此时登录页会显示一条黄色提示，控制台也会 WARN 一次。
+
+这条路的定位是「先能用」，**不等于安全**：没有 TLS 就没有服务端身份认证，`GET /v1/auth/config` 下发的公钥可以被中间人替换（换掉后口令对攻击者就是明文），密文也可以被原样重放。局域网可信、只想先把界面打开时可以用，有条件就换到 ①。
+
+**③ 临时手段**
+
+- 桌面 Chromium 可以把某个源站单独标记为可信：
+  `chrome.exe --unsafely-treat-insecure-origin-as-secure=http://192.168.1.23:8000 --user-data-dir=%TEMP%\chrome-lan`。
+  手机上没有对应开关，且这是逐个源站的整体降级信任，不要当长期方案。
+- SSH 端口转发：`ssh -L 8000:127.0.0.1:8000 user@主机`，然后开 `http://localhost:8000`。localhost 天然是安全上下文，什么都不用改。
+
 ## 4. 首次启动检查清单
 
 | # | 检查项 | 期望值 / 动作 |
@@ -337,6 +390,7 @@ CORS 过滤器只在 `web.enabled` 为 true 时挂载，行为由 `web.cors_*` �
 | 10 | `auth.password_private_key_file` | 确认文件已生成且纳入备份；与数据库同生命周期 |
 | 11 | 备份 | 数据库快照 + 对象存储 + 私钥文件三件套就位 |
 | 12 | 定时维护 | 配置 `POST /v1/system/maintenance/run` 的 cron（第 5 节） |
+| 13 | 局域网 / 内网访问 | 走 HTTPS（自签证书也要真的装进设备信任库，否则等于没配）。纯 http 按 IP 访问时浏览器不提供 WebCrypto，登录会报「无法加密口令」（3.4） |
 
 ## 5. 运行参数与维护任务
 

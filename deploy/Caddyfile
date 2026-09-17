@@ -1,0 +1,40 @@
+# Nagisa 内网 HTTPS 入口：TLS 终止在 Caddy，后端仍然是 http://127.0.0.1:8000。
+#
+# 为什么需要它：浏览器只在**安全上下文**里提供 crypto.subtle，而 http://<局域网 IP>
+# 不是安全上下文，登录会报「无法加密口令」（navigator.clipboard 也一样不可用）。
+# 背景见 docs/deployment.md 3.4 节。
+#
+# 用法：
+#   1. .\scripts\lan-tls.ps1           # 签发带本机局域网 IP 的证书
+#   2. 把下面第一行的地址改成证书里的那个 IP（或域名）
+#   3. 在仓库根目录执行：caddy run --config deploy/Caddyfile
+#   4. 浏览器打开 https://<那个地址>
+#
+# 也可以不用外部证书：删掉下一行的 tls，改成 `tls internal`，先执行一次
+# `caddy trust`，再把 `caddy environ` 里 XDG_DATA_HOME 下
+# pki/authorities/local/root.crt 装到要访问的设备上。
+
+{$NAGISA_SITE:https://192.168.1.23} {
+	tls {$NAGISA_CERT:data/tls/server.pem} {$NAGISA_KEY:data/tls/server-key.pem}
+
+	reverse_proxy 127.0.0.1:8000 {
+		# 流式下载与实时 zip 必须边生成边下发，缓冲会让首字节永远等不到。
+		flush_interval -1
+
+		# 大分片上传不在代理层攒完整请求体。Caddy ≥ 2.7 才认这一行。
+		request_buffering off
+
+		# 后端自己会回 X-Request-Id，这里只补一个真实来源地址。
+		header_up X-Real-IP {remote_host}
+
+		# 后端 server.http.timeout 是 600s，代理侧不要比它短。
+		transport http {
+			dial_timeout 10s
+			response_header_timeout 600s
+		}
+	}
+
+	log {
+		output file data/caddy-access.log
+	}
+}

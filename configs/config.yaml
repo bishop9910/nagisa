@@ -115,6 +115,11 @@ web:
   root: ${WEB_ROOT:./web/dist}
   index: index.html
   spa_fallback: true
+  # Must be the address browsers actually reach the service at, scheme included:
+  # behind TLS it has to be https://..., and on a LAN it has to be the LAN
+  # address, or share links and signed URLs keep pointing at 127.0.0.1. Serving
+  # plain http:// to a LAN IP also costs the front end WebCrypto, so passwords
+  # fall back to the built-in RSA implementation (docs/deployment.md 3.4).
   public_base_url: ${PUBLIC_BASE_URL:http://127.0.0.1:8000}
   path_prefix: /
   cors_origins:

@@ -235,6 +235,7 @@ curl -s "$BASE/v1/files/$NODE_ID/download-url?expires_in_seconds=600" \
 api/netdisk/v1/          protobuf 契约：common/auth/user/node/file/share/audit/system + error_reason
 cmd/nagisa/              进程入口、Wire 注入器（wire.go / wire_gen.go）
 configs/                 运行配置 config.yaml（不含密钥）
+deploy/                  部署辅助：Caddyfile（内网 HTTPS 入口，见 docs/deployment.md 3.4）
 docs/                    本仓库文档与 OpenAPI 文档
 internal/conf/           配置 proto 与生成代码
 internal/server/         HTTP/gRPC 装配、编解码、静态托管、原始字节路由、中间件
@@ -242,6 +243,7 @@ internal/service/        传输适配层：DTO ↔ DO，一个资源一个文件
 internal/biz/            领域层：DO、用例、仓储接口、权限与访问判定、错误
 internal/data/           仓储实现、ent schema 与生成代码、对象存储客户端、种子数据
 internal/pkg/            bcrypt/RSA/JWT/URL 签名等基础库
+scripts/                 构建与运维脚本（build.ps1 / env.ps1 / lan-tls.ps1 / 前端冒烟）
 test/integration/        端到端冒烟测试（build tag: integration）
 tools/openapi/           OpenAPI 文档富化工具（补充安全方案、错误响应与原始字节绑定）
 web/                     前端接入位：README.md 说明约定，dist/ 目前只有占位 index.html

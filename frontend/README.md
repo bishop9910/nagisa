@@ -129,6 +129,13 @@ src/
 1. **口令加密**：`GET /v1/auth/config` 拿到 PEM 公钥后，用 WebCrypto 做
    RSA-OAEP(SHA-256) 再 base64，与 Go 侧 `rsa.EncryptOAEP(sha256.New(), ..., nil)` 等价。
    公钥按内容缓存，密钥轮换（`passwordKeyId` 变化）会自动重新导入。
+   **但 `crypto.subtle` 只在安全上下文里存在**：`https://` 和 `http://localhost` 有，
+   局域网按 IP 走的 `http://192.168.x.x` 没有——那种情况下浏览器报的不是「浏览器太老」，
+   而是把整个 `subtle` 藏了起来（`navigator.clipboard` 同时失效）。所以
+   `utils/crypto.ts` 在检测不到 `crypto.subtle` 时会退回到 `utils/rsa.ts` 的内置实现
+   （自带的 SHA-256 + MGF1 + OAEP + BigInt 模幂，密文格式与 WebCrypto 完全一致），
+   登录页会显示一条黄色提示。这条兜底让纯 HTTP 的局域网也能登录，但没有 TLS 就
+   无法校验服务端身份，正式做法是给站点配 HTTPS：见 `docs/deployment.md` 3.4 节。
 2. **令牌与 401**：访问令牌过期时用刷新令牌换新的一对并**重放原请求**；并发的多个 401
    共用同一次续期，避免并发轮换互相吊销。续期失败才清空会话并跳登录。
 3. **解封令牌**：`UnlockNode` 返回的是**最外层**受保护祖先的令牌，因此前端按
@@ -160,7 +167,7 @@ src/
 ## 7. 测试
 
 ```bash
-pnpm test:unit                                  # 37 个用例：工具函数 / HTTP 客户端 / 口令加密 / UI 组件
+pnpm test:unit                                  # 65 个用例：工具函数 / HTTP 客户端 / 口令加密（含兜底）/ UI 组件
 pnpm build                                      # vue-tsc 类型检查 + 构建
 
 # 对接真实后端的接口冒烟（与浏览器行为一致：RSA 加密口令、camelCase 参数、X-Node-Token）
