@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /**
  * 回收站：查看、还原、彻底删除与清空。
+ * 条目按层级展示：顶层只列被删的那一项，点进被删的文件夹才看到里面的内容。
  * 没有 PERMISSION_TRASH_MANAGE 时只能看到并清理自己拥有的条目。
  */
 import { computed, onMounted, ref, watch } from 'vue'
@@ -12,6 +13,7 @@ import AppInput from '@/components/ui/AppInput.vue'
 import AppPagination from '@/components/ui/AppPagination.vue'
 import AppSegmented from '@/components/ui/AppSegmented.vue'
 import AppSelect from '@/components/ui/AppSelect.vue'
+import Breadcrumbs from '@/components/files/Breadcrumbs.vue'
 import FileTable from '@/components/files/FileTable.vue'
 import { errorText, nodesApi } from '@/api'
 import type { Node } from '@/api/types'
@@ -23,7 +25,14 @@ import { has, orderBy } from '@/utils/filter'
 const auth = useAuthStore()
 const ui = useUiStore()
 
+/** 从顶层一路走进来的被删文件夹。 */
+interface TrashFolder {
+  id: string
+  name: string
+}
+
 const nodes = ref<Node[]>([])
+const path = ref<TrashFolder[]>([])
 const loading = ref(false)
 const error = ref('')
 const keyword = ref('')
@@ -45,6 +54,11 @@ const emptying = ref(false)
 
 const canManage = computed(() => auth.has('PERMISSION_TRASH_MANAGE'))
 const selectedNodes = computed(() => nodes.value.filter((node) => selection.value.includes(node.id ?? '')))
+const current = computed<TrashFolder | null>(() => path.value[path.value.length - 1] ?? null)
+/** 面包屑的祖先链：最前面是回收站顶层（id 为空串），其余是走过的文件夹。 */
+const trail = computed<TrashFolder[]>(() =>
+  path.value.length === 0 ? [] : [{ id: '', name: '回收站' }, ...path.value.slice(0, -1)],
+)
 const ownerOptions = [
   { value: 'all', label: '全部条目' },
   { value: 'mine', label: '仅我拥有的' },
@@ -77,6 +91,8 @@ async function load(reset = false): Promise<void> {
       pageToken: tokenStack.value[page.value - 1] || undefined,
       filter: buildFilter(),
       orderBy: orderBy(orderField.value, orderDesc.value),
+      // 走进被删的文件夹时只列它里面的条目，层级因此得以保留。
+      originalParentId: current.value?.id || undefined,
     })
     nodes.value = result.nodes ?? []
     totalSize.value = toInt(result.totalSize, nodes.value.length)
@@ -154,8 +170,30 @@ async function emptyTrash(): Promise<void> {
 }
 
 function onNodeAction(payload: { key: string; node: Node }): void {
+  if (payload.key === 'open') openNode(payload.node)
   if (payload.key === 'restore') void restore([payload.node])
   if (payload.key === 'purge') void purge([payload.node])
+}
+
+/** 进入被删的文件夹：只看它这一层，层级关系不会被打平。 */
+function openNode(node: Node): void {
+  if (node.kind !== 'NODE_KIND_FOLDER' || !node.id) return
+  path.value = [...path.value, { id: node.id, name: node.name || '未命名' }]
+  void load(true)
+}
+
+/** 面包屑跳转：空串回到回收站顶层，否则回到走过的某一层。 */
+function onCrumb(id: string): void {
+  if (!id) {
+    if (path.value.length === 0) return
+    path.value = []
+    void load(true)
+    return
+  }
+  const index = path.value.findIndex((entry) => entry.id === id)
+  if (index < 0 || index === path.value.length - 1) return
+  path.value = path.value.slice(0, index + 1)
+  void load(true)
 }
 
 function toggleSelect(id: string): void {
@@ -186,6 +224,7 @@ onMounted(() => void load())
         <h1 class="page__title">回收站</h1>
         <p class="page__desc">
           删除的条目会先进入回收站，行与对象都保留；彻底删除后对象由维护任务回收。
+          被删的文件夹保留层级，进入文件夹才能看到里面的条目。
           <template v-if="!canManage">当前账号只能看到并清理自己拥有的条目。</template>
         </p>
       </div>
@@ -222,8 +261,16 @@ onMounted(() => void load())
 
     <section class="card">
       <header class="card__header">
-        <div>
-          <p class="card__title">回收站内容</p>
+        <div class="trash__heading">
+          <Breadcrumbs
+            v-if="path.length > 0"
+            root-label="回收站"
+            :folder-id="current?.id ?? ''"
+            :ancestors="trail"
+            :folder="current"
+            @navigate="onCrumb"
+          />
+          <p v-else class="card__title">回收站内容</p>
           <p class="card__subtitle">
             共 {{ formatNumber(totalSize) }} 项
             <template v-if="totalBytes > 0">· 本页 {{ formatBytes(totalBytes) }}</template>
@@ -239,7 +286,7 @@ onMounted(() => void load())
         context="trash"
         :can-restore="true"
         :can-purge="canManage"
-        @open="() => undefined"
+        @open="openNode"
         @action="onNodeAction"
         @toggle-select="toggleSelect"
         @toggle-all="toggleAll"
@@ -247,8 +294,8 @@ onMounted(() => void load())
       <AppEmpty
         v-else
         :icon="error ? 'alert-circle' : 'trash'"
-        :title="error ? '加载失败' : '回收站是空的'"
-        :description="error || '删除的文件与文件夹会出现在这里'"
+        :title="error ? '加载失败' : current ? '这个文件夹里没有条目' : '回收站是空的'"
+        :description="error || (current ? '里面的内容可能已经被还原或彻底删除' : '删除的文件与文件夹会出现在这里')"
       >
         <AppButton v-if="error" icon="refresh" @click="load()">重试</AppButton>
       </AppEmpty>
@@ -284,6 +331,10 @@ onMounted(() => void load())
 </template>
 
 <style scoped>
+.trash__heading {
+  min-width: 0;
+}
+
 .trash__toolbar {
   display: flex;
   align-items: center;

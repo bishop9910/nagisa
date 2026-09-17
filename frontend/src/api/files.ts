@@ -99,7 +99,18 @@ export function uploadSmallFile(input: {
   conflictPolicy?: ConflictPolicy
   description?: string
 }): Promise<Node> {
-  return http.post<Node>('/v1/files/upload', input, { nodeId: input.parentId })
+  return http.post<Node>(
+    '/v1/files/upload',
+    {
+      name: input.name,
+      content: input.contentBase64,
+      parentId: input.parentId,
+      mimeType: input.mimeType,
+      conflictPolicy: input.conflictPolicy,
+      description: input.description,
+    },
+    { nodeId: input.parentId },
+  )
 }
 
 export function getDownloadUrl(

@@ -1,9 +1,11 @@
-import { describe, expect, it } from 'vitest'
-import { mount, type VueWrapper } from '@vue/test-utils'
+import { afterEach, describe, expect, it } from 'vitest'
+import { defineComponent, nextTick } from 'vue'
+import { enableAutoUnmount, mount, type VueWrapper } from '@vue/test-utils'
 
 import AppBadge from '@/components/ui/AppBadge.vue'
 import AppButton from '@/components/ui/AppButton.vue'
 import AppCheckbox from '@/components/ui/AppCheckbox.vue'
+import AppDropdown from '@/components/ui/AppDropdown.vue'
 import AppEmpty from '@/components/ui/AppEmpty.vue'
 import AppField from '@/components/ui/AppField.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
@@ -11,6 +13,11 @@ import AppInput from '@/components/ui/AppInput.vue'
 import AppPagination from '@/components/ui/AppPagination.vue'
 import AppSegmented from '@/components/ui/AppSegmented.vue'
 import AppSwitch from '@/components/ui/AppSwitch.vue'
+import NodeActions from '@/components/files/NodeActions.vue'
+import type { Node } from '@/api/types'
+
+// 下拉菜单会 Teleport 到 body，用例之间必须卸载，否则残留的菜单会被下一个用例找到。
+enableAutoUnmount(afterEach)
 
 /** 最近一次事件负载（tsconfig.vitest 的 lib 为空，不使用 Array.prototype.at）。 */
 function lastPayload(wrapper: VueWrapper, event: string): unknown[] | undefined {
@@ -143,5 +150,128 @@ describe('展示组件', () => {
 
     await next?.trigger('click')
     expect(wrapper.emitted('next')).toHaveLength(1)
+  })
+})
+
+describe('下拉菜单', () => {
+  /** 菜单挂在 body 上，所以只能从 document 里找。 */
+  function menuInBody(): HTMLElement | null {
+    return document.body.querySelector('.dropdown__menu')
+  }
+
+  it('点击触发器展开菜单，选择后回调并收起', async () => {
+    const wrapper = mount(AppDropdown, {
+      props: {
+        items: [
+          { key: 'open', label: '打开' },
+          { key: 'delete', label: '删除', danger: true },
+        ],
+      },
+      slots: { trigger: '<button class="probe-trigger">更多</button>' },
+    })
+    expect(menuInBody()).toBeNull()
+
+    await wrapper.find('.probe-trigger').trigger('click')
+
+    expect(menuInBody()?.textContent).toContain('打开')
+    expect(menuInBody()?.textContent).toContain('删除')
+
+    document.body.querySelectorAll<HTMLElement>('.dropdown__item')[1]?.click()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.emitted('select')?.[0]).toEqual(['delete'])
+    await nextTick()
+    expect(menuInBody()).toBeNull()
+  })
+
+  it('菜单不留在触发器所在的容器里（不然会把表格撑出滚动条或被裁掉）', async () => {
+    const wrapper = mount(AppDropdown, {
+      props: { items: [{ key: 'open', label: '打开' }] },
+      slots: { trigger: '<button class="probe-trigger">更多</button>' },
+    })
+
+    await wrapper.find('.probe-trigger').trigger('click')
+
+    const menu = menuInBody()
+    expect(menu).not.toBeNull()
+    expect(wrapper.find('.dropdown__menu').exists()).toBe(false)
+    expect(wrapper.element.contains(menu)).toBe(false)
+    expect(wrapper.element.children).toHaveLength(1)
+  })
+
+  it('点菜单项本身不会先被外部点击逻辑关掉', async () => {
+    const wrapper = mount(AppDropdown, {
+      props: { items: [{ key: 'open', label: '打开' }] },
+      slots: { trigger: '<button class="probe-trigger">更多</button>' },
+    })
+    await wrapper.find('.probe-trigger').trigger('click')
+
+    menuInBody()?.querySelector('.dropdown__item')?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+
+    expect(menuInBody()).not.toBeNull()
+  })
+
+  it('触发器上的点击不会冒泡给外层容器', async () => {
+    const rowClicks: string[] = []
+    const Host = defineComponent({
+      components: { AppDropdown },
+      setup: () => ({ items: [{ key: 'open', label: '打开' }], onRow: () => rowClicks.push('row') }),
+      template: `<div class="row" @click="onRow">
+        <AppDropdown :items="items">
+          <template #trigger><button class="probe-trigger">更多</button></template>
+        </AppDropdown>
+      </div>`,
+    })
+    const wrapper = mount(Host)
+
+    await wrapper.find('.probe-trigger').trigger('click')
+
+    expect(rowClicks).toEqual([])
+    expect(menuInBody()).not.toBeNull()
+  })
+})
+
+describe('文件行的操作菜单', () => {
+  // 踩过的坑：触发器按钮上写 @click.stop 会把事件拦在 toggle 之前，点 ⋯ 毫无反应。
+  it('点「更多操作」能展开菜单', async () => {
+    const wrapper = mount(NodeActions, {
+      props: {
+        node: {
+          id: 'node-1',
+          name: 'docs',
+          kind: 'NODE_KIND_FOLDER',
+          effectivePermissionsMask: '4095',
+        } as unknown as Node,
+      },
+    })
+
+    await wrapper.find('.node-actions').trigger('click')
+
+    const menu = document.body.querySelector('.dropdown__menu')
+    expect(menu).not.toBeNull()
+    expect(menu?.textContent).toContain('打开')
+    expect(menu?.textContent).toContain('下载为 ZIP')
+    // 菜单不在单元格里，格子只剩那个 28px 的按钮。
+    expect(wrapper.find('.dropdown__menu').exists()).toBe(false)
+  })
+
+  it('回收站里的文件夹多一个「打开」入口，用来走进被删的层级', async () => {
+    const wrapper = mount(NodeActions, {
+      props: {
+        context: 'trash',
+        node: {
+          id: 'folder-1',
+          name: 'docs',
+          kind: 'NODE_KIND_FOLDER',
+        } as unknown as Node,
+      },
+    })
+
+    await wrapper.find('.node-actions').trigger('click')
+
+    const menu = document.body.querySelector('.dropdown__menu')
+    expect(menu?.textContent).toContain('打开')
+    expect(menu?.textContent).toContain('还原')
+    expect(menu?.textContent).toContain('彻底删除')
   })
 })

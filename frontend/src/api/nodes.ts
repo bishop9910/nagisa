@@ -62,6 +62,7 @@ export interface ListTrashQuery {
   pageToken?: string
   filter?: string
   orderBy?: string
+  /** 列这个回收站文件夹里的条目；不带时只列每棵被删子树的顶层条目。 */
   originalParentId?: string
 }
 

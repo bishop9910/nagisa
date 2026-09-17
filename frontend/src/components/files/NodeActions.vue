@@ -39,6 +39,8 @@ const items = computed(() => {
   const node = props.node
   if (props.context === 'trash') {
     return [
+      // 被删的文件夹保留了层级，所以先给一个入口走进去看里面的条目。
+      ...(isFolder.value ? [{ key: 'open', label: '打开', icon: 'folder-open' }] : []),
       { key: 'restore', label: '还原', icon: 'restore', disabled: props.canRestore === false },
       { key: 'purge', label: '彻底删除', icon: 'trash', danger: true, disabled: props.canPurge === false },
     ]
@@ -93,7 +95,7 @@ function onSelect(key: string): void {
 <template>
   <AppDropdown :items="items" :width="196" @select="onSelect">
     <template #trigger>
-      <button type="button" class="node-actions" aria-label="更多操作" @click.stop>
+      <button type="button" class="node-actions" aria-label="更多操作">
         <AppIcon name="more-vertical" :size="16" />
       </button>
     </template>

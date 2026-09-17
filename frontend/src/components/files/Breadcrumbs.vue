@@ -3,17 +3,27 @@
 import { computed } from 'vue'
 
 import AppIcon from '@/components/ui/AppIcon.vue'
-import type { Node } from '@/api/types'
 import { ROOT_LABEL } from '@/stores/files'
 
-const props = defineProps<{
-  /** 当前目录 id（空串表示根）。 */
-  folderId: string
-  /** 从根到当前目录的祖先链。 */
-  ancestors?: Node[]
-  /** 当前目录节点（根目录为 null）。 */
-  folder?: Node | null
-}>()
+/** 面包屑只用到 id 与 name，因此不要求完整的 Node，回收站这类导航也能复用。 */
+interface CrumbNode {
+  id?: string
+  name?: string
+}
+
+const props = withDefaults(
+  defineProps<{
+    /** 当前目录 id（空串表示根）。 */
+    folderId: string
+    /** 从根到当前目录的祖先链。 */
+    ancestors?: CrumbNode[]
+    /** 当前目录节点（根目录为 null）。 */
+    folder?: CrumbNode | null
+    /** 根那一层的显示名，回收站里是「回收站」。 */
+    rootLabel?: string
+  }>(),
+  { ancestors: () => [], folder: null, rootLabel: ROOT_LABEL },
+)
 
 const emit = defineEmits<{ (e: 'navigate', id: string): void }>()
 
@@ -24,7 +34,7 @@ interface Crumb {
 
 const crumbs = computed<Crumb[]>(() => {
   const list: Crumb[] = (props.ancestors ?? []).map((node) => ({ id: node.id ?? '', name: node.name || '未命名' }))
-  list.push({ id: props.folderId, name: props.folder?.name || ROOT_LABEL })
+  list.push({ id: props.folderId, name: props.folder?.name || props.rootLabel })
   return list
 })
 
