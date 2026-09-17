@@ -280,9 +280,10 @@ func (s *NodeService) GetNodeTree(ctx context.Context, req *v1.GetNodeTreeReques
 	return root, nil
 }
 
-// ListTrash returns the trashed nodes visible to the caller.
+// ListTrash returns the trashed nodes visible to the caller: the top entry of
+// every trashed subtree, or the trashed children of one folder.
 func (s *NodeService) ListTrash(ctx context.Context, req *v1.ListTrashRequest) (*v1.NodeSet, error) {
-	originalParent, err := parseOptionalUUID(req.GetOriginalParentId())
+	parentID, err := parseOptionalUUID(req.GetOriginalParentId())
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +295,7 @@ func (s *NodeService) ListTrash(ctx context.Context, req *v1.ListTrashRequest) (
 	if err != nil {
 		return nil, err
 	}
-	outcomes, total, err := s.uc.TrashNodes(ctx, originalParent, opts...)
+	outcomes, total, err := s.uc.TrashNodes(ctx, parentID, opts...)
 	if err != nil {
 		return nil, err
 	}

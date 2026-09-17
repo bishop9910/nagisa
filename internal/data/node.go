@@ -14,6 +14,7 @@ import (
 	"nagisa/internal/data/ent/nodeacl"
 	"nagisa/internal/data/ent/predicate"
 
+	"entgo.io/ent/dialect/sql"
 	"github.com/go-kratos/aip-go/ents"
 	"github.com/google/uuid"
 )
@@ -74,6 +75,13 @@ func nodePredicates(q biz.NodeQuery) []predicate.Node {
 	}
 	if q.ParentID != nil {
 		ps = append(ps, node.ParentIDEQ(*q.ParentID))
+	}
+	if q.TrashRoots {
+		// 被删子树整棵共享同一个 original_parent_id（删除时所在目录），只有子树
+		// 顶端那一项的 parent_id 还等于它，所以一条列比较就够，不用子查询。
+		ps = append(ps, predicate.Node(func(s *sql.Selector) {
+			s.Where(sql.ColumnsEQ(s.C(node.FieldParentID), s.C(node.FieldOriginalParentID)))
+		}))
 	}
 	if q.PathPrefix != "" {
 		ps = append(ps, node.PathHasPrefix(q.PathPrefix))

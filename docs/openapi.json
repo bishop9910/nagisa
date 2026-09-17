@@ -1111,7 +1111,7 @@
             "type": "string"
           },
           "originalParentId": {
-            "description": "Folder the node was trashed from, used by RestoreNodes. Read-only.",
+            "description": "Folder the node was trashed from, used by RestoreNodes. Read-only. Every\n node of a trashed subtree carries the same value, so a node whose\n parent_id still equals it is the top entry of that subtree, which is what\n ListTrash lists before the client steps into a folder.",
             "type": "string"
           },
           "owned": {
@@ -4124,7 +4124,7 @@
     },
     "/v1/nodes/delete": {
       "post": {
-        "description": "DeleteNodes moves nodes to the trash. The rows and the stored objects are\n retained until PurgeNodes or EmptyTrash.",
+        "description": "DeleteNodes moves nodes to the trash. The rows and the stored objects are\n retained until PurgeNodes or EmptyTrash. A deleted folder keeps its\n contents, and ListTrash shows it as one entry instead of flattening the\n subtree into the listing.",
         "operationId": "NodeService_DeleteNodes",
         "requestBody": {
           "content": {
@@ -4522,7 +4522,7 @@
     },
     "/v1/nodes/trash/list": {
       "get": {
-        "description": "ListTrash returns the trashed nodes visible to the caller.",
+        "description": "ListTrash returns the trashed nodes visible to the caller. Entries are\n listed one level at a time, so a deleted folder shows up without its\n contents: the top entry of every trashed subtree comes first, and\n original_parent_id walks into one of those folders.",
         "operationId": "NodeService_ListTrash",
         "parameters": [
           {
@@ -4557,7 +4557,7 @@
             }
           },
           {
-            "description": "Optional. Restrict the listing to nodes trashed from this folder.",
+            "description": "Optional. List the trashed children of this folder instead of the top\n entry of every trashed subtree. The folder itself has to be in the trash,\n so a client walks the trash tree one level per call.",
             "in": "query",
             "name": "originalParentId",
             "schema": {

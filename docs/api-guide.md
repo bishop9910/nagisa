@@ -430,6 +430,10 @@ Go 客户端的关键两步是 `x509.ParsePKIXPublicKey` 与 `rsa.EncryptOAEP(sh
 | 回复 | `NodeSet` |
 | 错误 | `NETDISK_UNAUTHENTICATED`、`NETDISK_INVALID_ARGUMENT` |
 
+**一次只列一层，层级关系保留**：不带 `original_parent_id` 时返回的是每棵被删子树的**顶端条目**（谁被删就显示谁），被删文件夹里的内容不会跟它平铺在同一级；带上某个回收站文件夹的 id 就列它里面的条目，客户端据此逐层走进回收站。判定方式是 `parent_id == original_parent_id`——整棵被删子树共享同一个 `original_parent_id`（删除时所在目录），只有顶端那一项还满足这个等式。
+
+还原时若只还原里面的某个子项，目标目录取它自己的 `original_parent_id`（即当初那个文件夹被删时所在的目录），所以单独还原出来的条目落在正常目录里，而不会留在一个仍在回收站里的文件夹内。
+
 ### `GetNode`
 
 | 项 | 内容 |
@@ -548,9 +552,9 @@ Go 客户端的关键两步是 `x509.ParsePKIXPublicKey` 与 `rsa.EncryptOAEP(sh
 | 鉴权 | 需要令牌 + 节点上的 `PERMISSION_DELETE`；`permanent: true` 还需 `PERMISSION_TRASH_MANAGE` |
 | 请求 | `ids[]`（必填）、`permanent`（可选，跳过回收站直接彻底删除） |
 | 回复 | `DeleteNodesReply`：`deleted_ids[]`、`affected_count`（含后代）、`reclaimed_bytes`（仅彻底删除时非零） |
-| 错误 | `NETDISK_INVALID_ARGUMENT`、`NETDISK_NOT_FOUND`、`NETDISK_NODE_LOCKED`、`NETDISK_PERMISSION_DENIED`（无 `delete`，或彻底删除时无 `trash_manage`，或节点不在回收站） |
+| 错误 | `NETDISK_INVALID_ARGUMENT`（`ids` 为空，或 `permanent: true` 时节点不在回收站）、`NETDISK_NOT_FOUND`、`NETDISK_NODE_LOCKED`、`NETDISK_PERMISSION_DENIED`（无 `delete`，或彻底删除时无 `trash_manage`） |
 
-默认只把节点（含子树）移入回收站，行与对象都保留；彻底删除的行为与限制见 `PurgeNodes`。
+默认只把节点（含子树）移入回收站，行与对象都保留；回收站把整棵子树显示为被删的那一项（层级见 `ListTrash`），彻底删除的行为与限制见 `PurgeNodes`。
 
 ### `RestoreNodes`
 

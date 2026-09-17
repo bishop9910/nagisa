@@ -226,6 +226,16 @@ func list(m map[string]any, key string) []any {
 	return v
 }
 
+// hasNodeID reports whether a NodeSet contains one node id.
+func hasNodeID(set map[string]any, id string) bool {
+	for _, raw := range list(set, "nodes") {
+		if entry, ok := raw.(map[string]any); ok && str(entry, "id") == id {
+			return true
+		}
+	}
+	return false
+}
+
 // TestSmoke walks the whole surface in the order a front end would.
 func TestSmoke(t *testing.T) {
 	admin := newClient(t)
@@ -546,6 +556,52 @@ func TestSmoke(t *testing.T) {
 		}, 0)
 		if len(list(restored, "nodes")) != 1 {
 			t.Errorf("restore returned %d nodes", len(list(restored, "nodes")))
+		}
+	})
+
+	// 回收站按层级展示：删掉文件夹后它是顶层一项，里面的内容要走进去才看得到。
+	t.Run("trash hierarchy", func(t *testing.T) {
+		outer, _ := admin.do(t, http.MethodPost, "/v1/nodes/folders/create", map[string]any{
+			"folder": map[string]any{"name": "trash-hierarchy"},
+		}, 0)
+		outerID := str(outer, "id")
+		if outerID == "" {
+			t.Fatalf("outer folder creation failed: %v", outer)
+		}
+		inner, _ := admin.do(t, http.MethodPost, "/v1/nodes/folders/create", map[string]any{
+			"folder": map[string]any{"name": "inner", "parentId": outerID},
+		}, 0)
+		innerID := str(inner, "id")
+		if innerID == "" {
+			t.Fatalf("inner folder creation failed: %v", inner)
+		}
+		t.Cleanup(func() {
+			admin.do(t, http.MethodPost, "/v1/nodes/delete", map[string]any{
+				"ids": []string{outerID}, "permanent": true,
+			}, 0)
+		})
+
+		admin.do(t, http.MethodPost, "/v1/nodes/delete", map[string]any{"ids": []string{outerID}}, 0)
+
+		roots, _ := admin.do(t, http.MethodGet, "/v1/nodes/trash/list", nil, 0)
+		if !hasNodeID(roots, outerID) {
+			t.Errorf("the deleted folder is missing from the top of the trash")
+		}
+		if hasNodeID(roots, innerID) {
+			t.Errorf("a deleted folder was flattened: its child shows up at the top level")
+		}
+
+		children, _ := admin.do(t, http.MethodGet, "/v1/nodes/trash/list?original_parent_id="+outerID, nil, 0)
+		if !hasNodeID(children, innerID) {
+			t.Errorf("the contents of a deleted folder are not reachable through original_parent_id")
+		}
+
+		admin.do(t, http.MethodPost, "/v1/nodes/trash/restore", map[string]any{
+			"ids": []string{outerID}, "conflict_policy": "CONFLICT_POLICY_RENAME",
+		}, 0)
+		back, _ := admin.do(t, http.MethodGet, "/v1/nodes/list?parent_id="+outerID, nil, 0)
+		if !hasNodeID(back, innerID) {
+			t.Errorf("restoring a folder did not bring its contents back")
 		}
 	})
 

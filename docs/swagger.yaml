@@ -835,7 +835,9 @@ paths:
         - NodeService
       description: |-
         DeleteNodes moves nodes to the trash. The rows and the stored objects are
-         retained until PurgeNodes or EmptyTrash.
+         retained until PurgeNodes or EmptyTrash. A deleted folder keeps its
+         contents, and ListTrash shows it as one entry instead of flattening the
+         subtree into the listing.
       operationId: NodeService_DeleteNodes
       requestBody:
         content:
@@ -1118,7 +1120,11 @@ paths:
     get:
       tags:
         - NodeService
-      description: ListTrash returns the trashed nodes visible to the caller.
+      description: |-
+        ListTrash returns the trashed nodes visible to the caller. Entries are
+         listed one level at a time, so a deleted folder shows up without its
+         contents: the top entry of every trashed subtree comes first, and
+         original_parent_id walks into one of those folders.
       operationId: NodeService_ListTrash
       parameters:
         - name: pageSize
@@ -1146,7 +1152,10 @@ paths:
             type: string
         - name: originalParentId
           in: query
-          description: Optional. Restrict the listing to nodes trashed from this folder.
+          description: |-
+            Optional. List the trashed children of this folder instead of the top
+             entry of every trashed subtree. The folder itself has to be in the trash,
+             so a client walks the trash tree one level per call.
           schema:
             type: string
       responses:
@@ -3248,7 +3257,11 @@ components:
           format: date-time
         originalParentId:
           type: string
-          description: Folder the node was trashed from, used by RestoreNodes. Read-only.
+          description: |-
+            Folder the node was trashed from, used by RestoreNodes. Read-only. Every
+             node of a trashed subtree carries the same value, so a node whose
+             parent_id still equals it is the top entry of that subtree, which is what
+             ListTrash lists before the client steps into a folder.
       description: Node is the canonical representation of a file or folder.
     netdisk.v1.NodeAcl:
       type: object

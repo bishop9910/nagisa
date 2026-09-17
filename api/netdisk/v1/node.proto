@@ -55,7 +55,10 @@ service NodeService {
     };
   }
 
-  // ListTrash returns the trashed nodes visible to the caller.
+  // ListTrash returns the trashed nodes visible to the caller. Entries are
+  // listed one level at a time, so a deleted folder shows up without its
+  // contents: the top entry of every trashed subtree comes first, and
+  // original_parent_id walks into one of those folders.
   rpc ListTrash (ListTrashRequest) returns (NodeSet) {
     option (google.api.http) = {
       get: "/v1/nodes/trash/list"
@@ -148,7 +151,9 @@ service NodeService {
   }
 
   // DeleteNodes moves nodes to the trash. The rows and the stored objects are
-  // retained until PurgeNodes or EmptyTrash.
+  // retained until PurgeNodes or EmptyTrash. A deleted folder keeps its
+  // contents, and ListTrash shows it as one entry instead of flattening the
+  // subtree into the listing.
   rpc DeleteNodes (DeleteNodesRequest) returns (DeleteNodesReply) {
     option (google.api.http) = {
       post: "/v1/nodes/delete"
@@ -280,7 +285,10 @@ message Node {
   string updated_by = 36;
   // Time at which the node was moved to the trash. Read-only.
   google.protobuf.Timestamp trashed_at = 37;
-  // Folder the node was trashed from, used by RestoreNodes. Read-only.
+  // Folder the node was trashed from, used by RestoreNodes. Read-only. Every
+  // node of a trashed subtree carries the same value, so a node whose
+  // parent_id still equals it is the top entry of that subtree, which is what
+  // ListTrash lists before the client steps into a folder.
   string original_parent_id = 38;
 }
 
@@ -468,7 +476,9 @@ message ListTrashRequest {
   // Optional. Comma-separated ordering fields. Supported fields: `name`,
   // `size`, `trashed_at`, `updated_at`.
   string order_by = 4;
-  // Optional. Restrict the listing to nodes trashed from this folder.
+  // Optional. List the trashed children of this folder instead of the top
+  // entry of every trashed subtree. The folder itself has to be in the trash,
+  // so a client walks the trash tree one level per call.
   string original_parent_id = 5;
 }
 

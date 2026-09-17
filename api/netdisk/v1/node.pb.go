@@ -102,7 +102,10 @@ type Node struct {
 	UpdatedBy string `protobuf:"bytes,36,opt,name=updated_by,json=updatedBy,proto3" json:"updated_by,omitempty"`
 	// Time at which the node was moved to the trash. Read-only.
 	TrashedAt *timestamppb.Timestamp `protobuf:"bytes,37,opt,name=trashed_at,json=trashedAt,proto3" json:"trashed_at,omitempty"`
-	// Folder the node was trashed from, used by RestoreNodes. Read-only.
+	// Folder the node was trashed from, used by RestoreNodes. Read-only. Every
+	// node of a trashed subtree carries the same value, so a node whose
+	// parent_id still equals it is the top entry of that subtree, which is what
+	// ListTrash lists before the client steps into a folder.
 	OriginalParentId string `protobuf:"bytes,38,opt,name=original_parent_id,json=originalParentId,proto3" json:"original_parent_id,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
@@ -1414,7 +1417,9 @@ type ListTrashRequest struct {
 	// Optional. Comma-separated ordering fields. Supported fields: `name`,
 	// `size`, `trashed_at`, `updated_at`.
 	OrderBy string `protobuf:"bytes,4,opt,name=order_by,json=orderBy,proto3" json:"order_by,omitempty"`
-	// Optional. Restrict the listing to nodes trashed from this folder.
+	// Optional. List the trashed children of this folder instead of the top
+	// entry of every trashed subtree. The folder itself has to be in the trash,
+	// so a client walks the trash tree one level per call.
 	OriginalParentId string `protobuf:"bytes,5,opt,name=original_parent_id,json=originalParentId,proto3" json:"original_parent_id,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache

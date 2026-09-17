@@ -49,7 +49,9 @@ type NodeServiceHTTPServer interface {
 	// DeleteNodeVersion DeleteNodeVersion drops one version and reclaims its stored object.
 	DeleteNodeVersion(context.Context, *DeleteNodeVersionRequest) (*emptypb.Empty, error)
 	// DeleteNodes DeleteNodes moves nodes to the trash. The rows and the stored objects are
-	// retained until PurgeNodes or EmptyTrash.
+	// retained until PurgeNodes or EmptyTrash. A deleted folder keeps its
+	// contents, and ListTrash shows it as one entry instead of flattening the
+	// subtree into the listing.
 	DeleteNodes(context.Context, *DeleteNodesRequest) (*DeleteNodesReply, error)
 	// EmptyTrash EmptyTrash purges every trashed node visible to the caller.
 	EmptyTrash(context.Context, *EmptyTrashRequest) (*PurgeNodesReply, error)
@@ -70,7 +72,10 @@ type NodeServiceHTTPServer interface {
 	// ListNodes ListNodes returns the children of a folder, or the root listing when
 	// parent_id is empty. Set recursive to walk the whole subtree.
 	ListNodes(context.Context, *ListNodesRequest) (*NodeSet, error)
-	// ListTrash ListTrash returns the trashed nodes visible to the caller.
+	// ListTrash ListTrash returns the trashed nodes visible to the caller. Entries are
+	// listed one level at a time, so a deleted folder shows up without its
+	// contents: the top entry of every trashed subtree comes first, and
+	// original_parent_id walks into one of those folders.
 	ListTrash(context.Context, *ListTrashRequest) (*NodeSet, error)
 	// MoveNodes MoveNodes moves nodes to another folder in one transaction. The operation
 	// is all-or-nothing: a single rejected node rolls the whole batch back.
@@ -555,7 +560,9 @@ type NodeServiceHTTPClient interface {
 	// DeleteNodeVersion DeleteNodeVersion drops one version and reclaims its stored object.
 	DeleteNodeVersion(ctx context.Context, req *DeleteNodeVersionRequest, opts ...http.CallOption) (rsp *emptypb.Empty, err error)
 	// DeleteNodes DeleteNodes moves nodes to the trash. The rows and the stored objects are
-	// retained until PurgeNodes or EmptyTrash.
+	// retained until PurgeNodes or EmptyTrash. A deleted folder keeps its
+	// contents, and ListTrash shows it as one entry instead of flattening the
+	// subtree into the listing.
 	DeleteNodes(ctx context.Context, req *DeleteNodesRequest, opts ...http.CallOption) (rsp *DeleteNodesReply, err error)
 	// EmptyTrash EmptyTrash purges every trashed node visible to the caller.
 	EmptyTrash(ctx context.Context, req *EmptyTrashRequest, opts ...http.CallOption) (rsp *PurgeNodesReply, err error)
@@ -576,7 +583,10 @@ type NodeServiceHTTPClient interface {
 	// ListNodes ListNodes returns the children of a folder, or the root listing when
 	// parent_id is empty. Set recursive to walk the whole subtree.
 	ListNodes(ctx context.Context, req *ListNodesRequest, opts ...http.CallOption) (rsp *NodeSet, err error)
-	// ListTrash ListTrash returns the trashed nodes visible to the caller.
+	// ListTrash ListTrash returns the trashed nodes visible to the caller. Entries are
+	// listed one level at a time, so a deleted folder shows up without its
+	// contents: the top entry of every trashed subtree comes first, and
+	// original_parent_id walks into one of those folders.
 	ListTrash(ctx context.Context, req *ListTrashRequest, opts ...http.CallOption) (rsp *NodeSet, err error)
 	// MoveNodes MoveNodes moves nodes to another folder in one transaction. The operation
 	// is all-or-nothing: a single rejected node rolls the whole batch back.
@@ -667,7 +677,9 @@ func (c *NodeServiceHTTPClientImpl) DeleteNodeVersion(ctx context.Context, in *D
 }
 
 // DeleteNodes DeleteNodes moves nodes to the trash. The rows and the stored objects are
-// retained until PurgeNodes or EmptyTrash.
+// retained until PurgeNodes or EmptyTrash. A deleted folder keeps its
+// contents, and ListTrash shows it as one entry instead of flattening the
+// subtree into the listing.
 func (c *NodeServiceHTTPClientImpl) DeleteNodes(ctx context.Context, in *DeleteNodesRequest, opts ...http.CallOption) (*DeleteNodesReply, error) {
 	var out DeleteNodesReply
 	pattern := "/v1/nodes/delete"
@@ -825,7 +837,10 @@ func (c *NodeServiceHTTPClientImpl) ListNodes(ctx context.Context, in *ListNodes
 	return &out, nil
 }
 
-// ListTrash ListTrash returns the trashed nodes visible to the caller.
+// ListTrash ListTrash returns the trashed nodes visible to the caller. Entries are
+// listed one level at a time, so a deleted folder shows up without its
+// contents: the top entry of every trashed subtree comes first, and
+// original_parent_id walks into one of those folders.
 func (c *NodeServiceHTTPClientImpl) ListTrash(ctx context.Context, in *ListTrashRequest, opts ...http.CallOption) (*NodeSet, error) {
 	var out NodeSet
 	pattern := "/v1/nodes/trash/list"

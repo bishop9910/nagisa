@@ -102,6 +102,12 @@ type NodeQuery struct {
 	ExcludeIDs []uuid.UUID
 	// IncludeTrashed keeps trashed rows in an otherwise active listing.
 	IncludeTrashed bool
+	// TrashRoots keeps only the top entry of each trashed subtree, which is what
+	// a trash listing shows before the caller steps into a folder. The entries
+	// at the top were the ones handed to SetSubtreeStatus, so their parent_id
+	// still equals the original_parent_id recorded at that moment, while every
+	// descendant keeps pointing at the trashed folder above it.
+	TrashRoots bool
 	// MaxDepth, when non-zero, bounds the absolute depth of a PathPrefix
 	// listing. The caller converts its relative limit into an absolute one.
 	MaxDepth int32
@@ -1091,16 +1097,20 @@ func (uc *NodeUsecase) TrashAllForOwner(ctx context.Context, ownerID uuid.UUID) 
 	return affected, nil
 }
 
-// TrashNodes lists the trash visible to the caller.
-func (uc *NodeUsecase) TrashNodes(ctx context.Context, originalParent uuid.UUID, opts ...ListOption) ([]Outcome, int64, error) {
+// TrashNodes lists the trash visible to the caller: the top entry of every
+// trashed subtree, or the trashed children of one folder when parent is set.
+func (uc *NodeUsecase) TrashNodes(ctx context.Context, parent uuid.UUID, opts ...ListOption) ([]Outcome, int64, error) {
 	caller := CallerFromContext(ctx)
 	if !caller.IsAuthenticated() {
 		return nil, 0, ErrUnauthenticated
 	}
 	status := NodeStatusTrashed
 	query := NodeQuery{Status: &status, IncludeTrashed: true}
-	if originalParent != uuid.Nil {
-		query.ParentID = &originalParent
+	if parent != uuid.Nil {
+		query.ParentID = &parent
+	} else {
+		// 不带目录时只列被删子树的顶端：里面的文件不该和被删的文件夹平铺在一起。
+		query.TrashRoots = true
 	}
 	if !caller.Has(PermTrashManage) {
 		owner := caller.UserID

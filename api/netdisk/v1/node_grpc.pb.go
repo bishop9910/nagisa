@@ -72,7 +72,10 @@ type NodeServiceClient interface {
 	// GetNodeTree returns a folder subtree expanded to the requested depth in a
 	// single round trip.
 	GetNodeTree(ctx context.Context, in *GetNodeTreeRequest, opts ...grpc.CallOption) (*NodeTree, error)
-	// ListTrash returns the trashed nodes visible to the caller.
+	// ListTrash returns the trashed nodes visible to the caller. Entries are
+	// listed one level at a time, so a deleted folder shows up without its
+	// contents: the top entry of every trashed subtree comes first, and
+	// original_parent_id walks into one of those folders.
 	ListTrash(ctx context.Context, in *ListTrashRequest, opts ...grpc.CallOption) (*NodeSet, error)
 	// GetNode returns a single node by id.
 	GetNode(ctx context.Context, in *GetNodeRequest, opts ...grpc.CallOption) (*Node, error)
@@ -104,7 +107,9 @@ type NodeServiceClient interface {
 	// CopyNodes copies nodes, including folder subtrees, into another folder.
 	CopyNodes(ctx context.Context, in *CopyNodesRequest, opts ...grpc.CallOption) (*NodeSet, error)
 	// DeleteNodes moves nodes to the trash. The rows and the stored objects are
-	// retained until PurgeNodes or EmptyTrash.
+	// retained until PurgeNodes or EmptyTrash. A deleted folder keeps its
+	// contents, and ListTrash shows it as one entry instead of flattening the
+	// subtree into the listing.
 	DeleteNodes(ctx context.Context, in *DeleteNodesRequest, opts ...grpc.CallOption) (*DeleteNodesReply, error)
 	// RestoreNodes restores nodes from the trash.
 	RestoreNodes(ctx context.Context, in *RestoreNodesRequest, opts ...grpc.CallOption) (*NodeSet, error)
@@ -368,7 +373,10 @@ type NodeServiceServer interface {
 	// GetNodeTree returns a folder subtree expanded to the requested depth in a
 	// single round trip.
 	GetNodeTree(context.Context, *GetNodeTreeRequest) (*NodeTree, error)
-	// ListTrash returns the trashed nodes visible to the caller.
+	// ListTrash returns the trashed nodes visible to the caller. Entries are
+	// listed one level at a time, so a deleted folder shows up without its
+	// contents: the top entry of every trashed subtree comes first, and
+	// original_parent_id walks into one of those folders.
 	ListTrash(context.Context, *ListTrashRequest) (*NodeSet, error)
 	// GetNode returns a single node by id.
 	GetNode(context.Context, *GetNodeRequest) (*Node, error)
@@ -400,7 +408,9 @@ type NodeServiceServer interface {
 	// CopyNodes copies nodes, including folder subtrees, into another folder.
 	CopyNodes(context.Context, *CopyNodesRequest) (*NodeSet, error)
 	// DeleteNodes moves nodes to the trash. The rows and the stored objects are
-	// retained until PurgeNodes or EmptyTrash.
+	// retained until PurgeNodes or EmptyTrash. A deleted folder keeps its
+	// contents, and ListTrash shows it as one entry instead of flattening the
+	// subtree into the listing.
 	DeleteNodes(context.Context, *DeleteNodesRequest) (*DeleteNodesReply, error)
 	// RestoreNodes restores nodes from the trash.
 	RestoreNodes(context.Context, *RestoreNodesRequest) (*NodeSet, error)
