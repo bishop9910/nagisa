@@ -25,10 +25,6 @@ services:
       - server
       - -s3
       - -dir=/data
-      # Both directories must be written out: -master.dir is NOT inherited from
-      # -dir, and the writability check runs before the inheritance logic, so
-      # omitting it aborts the startup with `Check Meta Folder ... Writable`.
-      - -master.dir=/data/meta
       - -s3.config=/etc/seaweedfs/s3.json
       # Bind the advertised address explicitly. Left alone, SeaweedFS picks a
       # non-loopback interface and writes it into the cluster topology; when that
@@ -36,10 +32,31 @@ services:
       # heartbeats and exits. The service name is resolved on the Compose
       # network, and it is also how nagisa reaches this container.
       - -ip=seaweedfs
-      # A volume is sealed at 30 GiB (SeaweedFS' own default), so this is only
-      # spelled out to make the number visible. Raise it if a single object can
-      # exceed it; lower it to spread writes over more volumes.
-      - -master.volumeSizeLimitMB=30720
+      # Neither -master.dir nor -master.volumeSizeLimitMB belongs here.
+      #
+      # -master.dir: `weed server` already defaults it to the first -dir entry
+      # (`if *masterOptions.metaFolder == "" { *masterOptions.metaFolder =
+      # folders[0] }` in weed/command/server.go), so the master meta lands in
+      # /data. Spelling it out as /data/meta is what killed the first start: the
+      # check is `util.TestFolderWritable`, which only stats the folder, and
+      # nothing ever creates /data/meta on a fresh volume —
+      #   F server.go:325 Check Meta Folder (-mdir="/data/meta") Writable:
+      #     stat /data/meta: no such file or directory
+      # exits 255 and Compose reports `container ... is unhealthy`.
+      #
+      # -master.volumeSizeLimitMB: the 30720 that used to be here (30 GiB, read
+      # as the 30 GB SeaweedFS means) is above the hard ceiling
+      # (`if *masterOptions.volumeSizeLimitMB > util.VolumeSizeLimitGB*1000`), so
+      # startup died with
+      #   F server.go:318 masterVolumeSizeLimitMB should be less than 30000
+      # despite what that message says, 30000 itself is accepted; only 30001+ is
+      # refused. Left unset, this image's own entrypoint injects
+      # `-master.volumeSizeLimitMB=1024`, i.e. a volume seals at 1 GiB — on
+      # purpose, because that same entrypoint passes -master.volumePreallocate,
+      # which reserves the space up front. For bigger volumes, add
+      #   - -master.volumeSizeLimitMB=30000
+      #   - -master.volumePreallocate=false
+      # (Compose args come last, so they win over the entrypoint's).
     environment:
       # SeaweedFS is Go and has no cgroup-aware default, so it would otherwise
       # size its caches from the *host* CPU count.
@@ -81,6 +98,10 @@ services:
         # Empty means docker.io; a mirror host makes the build work where
         # Docker Hub is unreachable. See .env.example.
         REGISTRY_MIRROR: ${REGISTRY_MIRROR:-}
+        # Go module proxy for the `go mod download` layer. The upstream default
+        # is proxy.golang.org, which is unreachable on the same networks that
+        # need REGISTRY_MIRROR; point it at a mirror. See .env.example.
+        GOPROXY: ${GOPROXY:-https://proxy.golang.org,direct}
     image: nagisa:${NAGISA_VERSION:-dev}
     restart: unless-stopped
     depends_on:
@@ -89,23 +110,34 @@ services:
         # is unreachable, so wait for the listener rather than for the process.
         condition: service_healthy
     environment:
+      # Every key below carries the KRATOS_ prefix on purpose — do not "clean it
+      # up". configs/config.yaml writes these as ${KEY:default}, and Kratos fills
+      # such a placeholder from the *config key* KEY, which its environment
+      # source only produces from the variable KRATOS_KEY. A bare `S3_ENDPOINT`
+      # is a plain OS variable that nothing reads: the placeholder silently takes
+      # its default instead. That is exactly how this stack first failed — with
+      # S3_ENDPOINT=seaweedfs:8333 in the environment, the service still probed
+      # http://127.0.0.1:8333 (itself) and died with `probe bucket ... connection
+      # refused`. Values stay interpolated from .env, so the names users edit
+      # there are still the unprefixed ones.
+      #
       # --- paths inside the image (already absolute in the Dockerfile) -------
-      DATABASE_SOURCE: /app/data/nagisa.db
-      PASSWORD_KEY_FILE: /app/data/password_key.pem
-      WEB_ROOT: /app/web/dist
+      KRATOS_DATABASE_SOURCE: /app/data/nagisa.db
+      KRATOS_PASSWORD_KEY_FILE: /app/data/password_key.pem
+      KRATOS_WEB_ROOT: /app/web/dist
 
       # --- secrets ----------------------------------------------------------
-      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env — openssl rand -base64 48}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      KRATOS_JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env — openssl rand -base64 48}
+      KRATOS_ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
 
       # --- object storage ---------------------------------------------------
-      S3_ENDPOINT: seaweedfs:8333
-      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-nagisa}
-      S3_SECRET_KEY: ${S3_SECRET_KEY:-nagisa-secret}
-      S3_BUCKET: ${S3_BUCKET:-nagisa}
+      KRATOS_S3_ENDPOINT: seaweedfs:8333
+      KRATOS_S3_ACCESS_KEY: ${S3_ACCESS_KEY:-nagisa}
+      KRATOS_S3_SECRET_KEY: ${S3_SECRET_KEY:-nagisa-secret}
+      KRATOS_S3_BUCKET: ${S3_BUCKET:-nagisa}
       # Address presigned URLs are signed for. Must be reachable by the browser;
       # empty keeps downloads on the server-side streaming endpoint. See .env.
-      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-}
+      KRATOS_S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-}
       # proxy relays every chunk through this service (works everywhere);
       # presigned hands the browser a direct-to-S3 URL (needs CORS + a public
       # S3 address). The dotted form is the Kratos override for
@@ -114,8 +146,8 @@ services:
 
       # --- web --------------------------------------------------------------
       # Same-origin deployment: leave empty and no CORS filter is needed at all.
-      CORS_ORIGIN: ${CORS_ORIGIN:-}
-      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+      KRATOS_CORS_ORIGIN: ${CORS_ORIGIN:-}
+      KRATOS_PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
     ports:
       - "${NAGISA_HTTP_PORT:-8000}:8000"
       # gRPC, loopback only by default: nothing outside this host needs it.

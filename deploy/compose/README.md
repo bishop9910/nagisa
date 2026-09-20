@@ -60,6 +60,8 @@ deploy/compose/
 > ```
 >
 > 三个基础镜像（`node:24-alpine`、`golang:1.25`、`alpine:3.21`）与对象存储镜像都在 Docker Hub 上，所以都需要镜像站。`.env.example` 里默认填了一个实测可用的（`docker.1panel.live/`），换掉即可。**注意运行段是 alpine 而不是 distroless**：distroless 在 `gcr.io`，Docker Hub 的镜像站不代理它，连不上 `gcr.io` 的网络根本构建不出来——原因见 [`docs/deployment.md`](../../docs/deployment.md#71-镜像)。
+>
+> 镜像拉通了之后还有**第二道墙**：后端阶段的 `go mod download` 默认走 `proxy.golang.org`，同一条网络上照样超时（`.env` 里的 `GOPROXY`，默认已填好一个实测可用的；原因和换法见模板里的注释）。这两件事互不相干——`REGISTRY_MIRROR` 管拉镜像，`GOPROXY` 管容器里下 Go 依赖。
 
 ---
 
@@ -179,4 +181,5 @@ sudo chown -R 65532:65532 data/nagisa      # 或把 NAGISA_UID/NAGISA_GID 设成
 | 运行镜像是 alpine，可以 `docker compose exec nagisa sh` 进容器 | 查健康状态用 `docker inspect --format '{{.State.Health.Status}}' $(docker compose ps -q nagisa)`；`/app/nagisa -health http://127.0.0.1:8000/v1/system/health` 也能直接当探针跑 |
 | 需要翻文件/看数据库 | `docker compose exec nagisa sh`，或借一次性容器挂同一个卷：`docker run --rm -it --volumes-from $(docker compose ps -q nagisa) alpine sh`（卷里就是 `/app/data`） |
 | **拉镜像超时**：`failed to resolve reference "docker.io/...": i/o timeout` | 这台机器连不上 Docker Hub。在 `.env` 里设 `REGISTRY_MIRROR=<镜像站>/`（模板默认给了一个实测可用的），然后重新 `docker compose up -d --build`。四个镜像（node/golang/alpine/seaweedfs）都走这个前缀 |
-| 构建时 Go 模块下载失败 | 构建容器需要能访问 Go 模块代理与 npm registry；给 Docker 守护进程配好代理，或把 `GOPROXY` 通过 Dockerfile 的构建参数传入 |
+| 构建时 Go 模块下载失败：`go: <module>@<ver>: Get "https://proxy.golang.org/...": dial tcp ...: i/o timeout` | 构建容器里的 Go 连不上官方模块代理。在 `.env` 里设 `GOPROXY=<代理>`（模板默认给了一个实测可用的 `https://goproxy.cn,direct`；走 `make docker-build` 就传 `GOPROXY=...`）。模块校验仍按 `go.sum`，不用动 `GOSUMDB` |
+| 构建时 npm 依赖下载失败 | 前端阶段还要访问 npm registry（默认 `registry.npmjs.org`）；受限网络给 Docker 守护进程配好代理，或把 pnpm 指到镜像源 |

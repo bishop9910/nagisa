@@ -20,6 +20,10 @@ DOCKER_IMAGE?=nagisa:$(VERSION)
 # is the fix when docker.io is unreachable. Keep it at the host level — the
 # Dockerfile adds `library/` itself.
 REGISTRY_MIRROR?=
+# Go module proxy for the backend stage. Upstream default is proxy.golang.org,
+# which is unreachable on the same networks as docker.io;
+# `make docker-build GOPROXY=https://goproxy.cn,direct` is the fix there.
+GOPROXY?=https://proxy.golang.org,direct
 
 .PHONY: init
 # init env
@@ -48,6 +52,7 @@ docker-build:
 	docker build \
 		--build-arg VERSION=$(VERSION) \
 		--build-arg REGISTRY_MIRROR=$(REGISTRY_MIRROR) \
+		--build-arg GOPROXY=$(GOPROXY) \
 		--build-arg REVISION=$(REVISION) \
 		--build-arg CREATED=$(BUILD_TIME) \
 		-t $(DOCKER_IMAGE) .

@@ -509,7 +509,7 @@ curl -sf -X POST "$BASE/v1/system/maintenance/run" \
 - **依赖层独立缓存**：`go.mod`/`go.sum` 与 `package.json`/`pnpm-lock.yaml` 各自先 COPY 再安装，改业务代码不会重新下载整张依赖图。
 - **`/app/data` 在镜像里就属于 uid 65532**：Docker 会把这份属主继承给**新建的命名卷**，非 root 容器因此不需要 init 脚本或 chown sidecar 就能写库和私钥。
 
-启动命令是 `nagisa -conf /app/configs`，镜像里预设了三个环境变量，让路径不再依赖工作目录：`DATABASE_SOURCE=/app/data/nagisa.db`、`PASSWORD_KEY_FILE=/app/data/password_key.pem`、`WEB_ROOT=/app/web/dist`。`/docs/` 由 `internal/server/http.go` 从 `./docs` 提供，工作目录是 `/app`，正好对上。
+启动命令是 `nagisa -conf /app/configs`，镜像里预设了三个环境变量，让路径不再依赖工作目录：`KRATOS_DATABASE_SOURCE=/app/data/nagisa.db`、`KRATOS_PASSWORD_KEY_FILE=/app/data/password_key.pem`、`KRATOS_WEB_ROOT=/app/web/dist`（参数名里的 `KRATOS_` 前缀是必须的，理由见 [configuration.md](configuration.md) 的「环境变量」一节）。`/docs/` 由 `internal/server/http.go` 从 `./docs` 提供，工作目录是 `/app`，正好对上。
 
 ### 7.2 构建与运行
 
@@ -518,9 +518,9 @@ make docker-build                     # 版本号由 Makefile 从 git describe �
 make docker-up                        # docker compose up -d --build（nagisa + SeaweedFS）
 make docker-down                      # 停栈，保留两个数据卷
 docker run --rm -p 8000:8000 -p 9000:9000 \
-  -e JWT_SECRET="$(openssl rand -base64 48)" \
-  -e ADMIN_PASSWORD='Admin@12345' \
-  -e S3_ENDPOINT=192.168.1.23:8333 \
+  -e KRATOS_JWT_SECRET="$(openssl rand -base64 48)" \
+  -e KRATOS_ADMIN_PASSWORD='Admin@12345' \
+  -e KRATOS_S3_ENDPOINT=192.168.1.23:8333 \
   -v nagisa-data:/app/data \
   nagisa:$(git describe --tags --always)
 ```
@@ -529,19 +529,21 @@ docker run --rm -p 8000:8000 -p 9000:9000 \
 
 > **`docker.io` 连不上时**（典型报错 `failed to resolve reference "docker.io/chrislusf/seaweedfs:4.05": dial tcp ... i/o timeout`）：给 `make docker-build` 传 `--build-arg REGISTRY_MIRROR=<镜像站>/`，或在 `deploy/compose/.env` 里设 `REGISTRY_MIRROR=<镜像站>/`。三个基础镜像加对象存储镜像都会走这个前缀。也可以给 Docker 守护进程配 `registry-mirrors`（`/etc/docker/daemon.json`），但那只对 `docker.io` 生效且要重启 docker。
 >
-> 构建还需要 Go 模块代理与 npm registry；受限网络里给 `GOPROXY` 指一个可用代理即可（模块校验仍按 `go.sum` 进行）。
+> 构建还需要 Go 模块代理与 npm registry。后端阶段的 `go mod download` 默认走 `proxy.golang.org`，受限网络里会以同样的 `i/o timeout` 失败（`go: <module>@<ver>: Get "https://proxy.golang.org/...": dial tcp ...`）：给 `make docker-build` 传 `GOPROXY=https://goproxy.cn,direct`，或在 `deploy/compose/.env` 里设同名变量即可。模块校验仍按 `go.sum` 进行，不用改 `GOSUMDB`。
 
 常用环境变量（全部都是 `configs/config.yaml` 里 `${KEY:default}` 占位符或 `KRATOS_` 覆盖）：
 
 | 变量 | 作用 |
 | --- | --- |
-| `JWT_SECRET` | 签发访问令牌与所有签名 URL。**生产必须显式设置**；留空则每次启动随机生成，重启后令牌与下载链接全失效 |
-| `ADMIN_PASSWORD` | 内置管理员首启口令；留空则随机生成并只在日志里打印一次 |
-| `S3_ENDPOINT` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` / `S3_BUCKET` | 对象存储地址与凭据。**容器内的 `127.0.0.1` 是容器自己**，指向宿主机要用宿主机的可达地址（Linux 上可加 `--add-host=host.docker.internal:host-gateway`）或 compose 里的服务名 |
-| `S3_PUBLIC_ENDPOINT` | 浏览器可达的对象存储地址，用于签发预签名直链；留空则下载走服务端流式端点（见 1.5） |
-| `WEB_ROOT` / `DATABASE_SOURCE` / `PASSWORD_KEY_FILE` | 已由镜像设好绝对值，一般不用动 |
+| `KRATOS_JWT_SECRET` | 签发访问令牌与所有签名 URL。**生产必须显式设置**；留空则每次启动随机生成，重启后令牌与下载链接全失效 |
+| `KRATOS_ADMIN_PASSWORD` | 内置管理员首启口令；留空则随机生成并只在日志里打印一次 |
+| `KRATOS_S3_ENDPOINT` / `KRATOS_S3_ACCESS_KEY` / `KRATOS_S3_SECRET_KEY` / `KRATOS_S3_BUCKET` | 对象存储地址与凭据。**容器内的 `127.0.0.1` 是容器自己**，指向宿主机要用宿主机的可达地址（Linux 上可加 `--add-host=host.docker.internal:host-gateway`）或 compose 里的服务名 |
+| `KRATOS_S3_PUBLIC_ENDPOINT` | 浏览器可达的对象存储地址，用于签发预签名直链；留空则下载走服务端流式端点（见 1.5） |
+| `KRATOS_WEB_ROOT` / `KRATOS_DATABASE_SOURCE` / `KRATOS_PASSWORD_KEY_FILE` | 已由镜像设好绝对值，一般不用动 |
 | `KRATOS_upload.default_mode` | `proxy` 或 `presigned`；点号形式是 Kratos 的覆盖写法 |
 | `KRATOS_auth.allow_plain_password` | 永远不要设为 true |
+
+> 上表是**容器里**生效的变量名，前缀不是可选项：`config.yaml` 里的 `${KEY:默认值}` 取的是**配置键** `KEY`，而 Kratos 只会从 `KRATOS_KEY` 生成它。`deploy/compose/.env` 里用的是不带前缀的名字（`JWT_SECRET`、`S3_ENDPOINT`…）——那是 compose 的插值变量，由 `docker-compose.yml` 映射成上表的 `KRATOS_` 形式注入容器。
 
 `EXPOSE 8000 9000`；**没有 `VOLUME` 指令**——容器编排应当显式声明卷，镜像级匿名卷只会在裸 `docker run` 时把数据藏进匿名卷里。
 

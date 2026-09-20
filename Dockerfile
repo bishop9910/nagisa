@@ -1,4 +1,17 @@
-# syntax=docker/dockerfile:1.7
+# Deliberately NO `# syntax=` directive.
+#
+# A syntax line makes BuildKit pull its own front-end image
+# (`docker.io/docker/dockerfile:1.7`) *before* it parses anything else. That
+# reference is hardcoded to Docker Hub and is resolved before any build arg
+# exists, so REGISTRY_MIRROR below cannot redirect it — on a network that cannot
+# reach registry-1.docker.io the build dies at step 1/3 with
+# `failed to resolve image config for docker-image://docker.io/docker/dockerfile:1.7`
+# long before the first FROM. Dropping the line uses BuildKit's built-in
+# front end instead, and nothing here needs 1.7 features: the only modern syntax
+# is `RUN --mount=type=cache`, which every BuildKit >= 1.2 understands. If you
+# ever do need a specific front end, do not re-add this line for a mirrored
+# network — pass the mirror explicitly instead:
+#   docker buildx build --build-arg BUILDKIT_SYNTAX=${REGISTRY_MIRROR}docker/dockerfile:1.7 .
 #
 # Nagisa netdisk — one image that carries the service, the built front end and
 # the generated API documentation.
@@ -79,6 +92,16 @@ ENV CGO_ENABLED=0 \
     GOOS=${TARGETOS:-linux} \
     GOFLAGS=-trimpath
 
+# The module proxy is a build arg for the same reason REGISTRY_MIRROR is: the
+# upstream default (proxy.golang.org) is unreachable on exactly the networks
+# that need a Docker Hub mirror, and a blocked `go mod download` looks like a
+# broken repository rather than a network problem. `,direct` is the fallback to
+# fetching from VCS for modules the proxy has not cached; module verification
+# still runs against go.sum (a good mirror relays sumdb, so GOSUMDB needs no
+# change). See deploy/compose/.env.example for a mirror that is known to work.
+ARG GOPROXY=https://proxy.golang.org,direct
+ENV GOPROXY=${GOPROXY}
+
 WORKDIR /src
 
 # go.mod/go.sum first, mirroring the frontend stage: the module cache is only
@@ -119,10 +142,16 @@ LABEL org.opencontainers.image.title="nagisa-netdisk" \
 WORKDIR /app
 
 # Absolute paths, so nothing depends on the image working directory:
-# configs/config.yaml resolves these as ${KEY:default} placeholders.
-ENV DATABASE_SOURCE=/app/data/nagisa.db \
-    PASSWORD_KEY_FILE=/app/data/password_key.pem \
-    WEB_ROOT=/app/web/dist \
+# configs/config.yaml resolves these as ${KEY:default} placeholders, and Kratos
+# fills such a placeholder from the *config key* KEY — which its environment
+# source derives only from the KRATOS_-prefixed variable. A bare
+# `DATABASE_SOURCE=...` is a plain OS variable that nothing reads, and the
+# placeholder would silently keep its (work-dir relative) default. The prefix is
+# therefore load-bearing, not decoration. `KRATOS_<dotted.path>` is the other
+# accepted form and is what the two addr overrides below use.
+ENV KRATOS_DATABASE_SOURCE=/app/data/nagisa.db \
+    KRATOS_PASSWORD_KEY_FILE=/app/data/password_key.pem \
+    KRATOS_WEB_ROOT=/app/web/dist \
     KRATOS_server.http.addr=0.0.0.0:8000 \
     KRATOS_server.grpc.addr=0.0.0.0:9000
 
