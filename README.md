@@ -107,6 +107,19 @@ go run ./cmd/nagisa -conf ./configs
 
 > 注意：`configs/config.yaml` 里 `data.object_storage.endpoint` 的默认值是 `127.0.0.1:8333`（SeaweedFS 的 S3 端口），与服务端口不冲突。若你的对象存储跑在别的地址，用 `S3_ENDPOINT` 指向它（例如 `127.0.0.1:9010`）。
 
+### Docker 一键起（nagisa + SeaweedFS）
+
+不想在本机装 Go、Node 与对象存储时，直接用 `deploy/compose/`：
+
+```bash
+cd deploy/compose
+cp .env.example .env      # 至少改 JWT_SECRET 与 ADMIN_PASSWORD
+docker compose up -d --build
+# 打开 http://127.0.0.1:8000（前端已构建进镜像）
+```
+
+一个镜像里同时包含后端、构建好的前端与 `/docs/`：三段构建（Node 构建 SPA → Go 静态编译 → alpine 运行，非 root），`make docker-build` 也可以单独构建镜像。`docker.io` 连不上的网络在 `.env` 里填 `REGISTRY_MIRROR` 即可（模板里给了实测可用的镜像站）。上传模式、备份、bind mount、反向代理与排障见 [`deploy/compose/README.md`](deploy/compose/README.md)，镜像本身的取舍见 [`docs/deployment.md`](docs/deployment.md#7-容器化)。
+
 ### 第一个管理员密码
 
 初次启动时 `internal/data/seed.go` 会补齐内置账号与默认设置，已存在的账号不会被覆盖：
@@ -235,7 +248,7 @@ curl -s "$BASE/v1/files/$NODE_ID/download-url?expires_in_seconds=600" \
 api/netdisk/v1/          protobuf 契约：common/auth/user/node/file/share/audit/system + error_reason
 cmd/nagisa/              进程入口、Wire 注入器（wire.go / wire_gen.go）
 configs/                 运行配置 config.yaml（不含密钥）
-deploy/                  部署辅助：Caddyfile（内网 HTTPS 入口，见 docs/deployment.md 3.4）
+deploy/                  部署辅助：Caddyfile（内网 HTTPS，见 docs/deployment.md 3.4）、compose/（nagisa + SeaweedFS 一键起）
 docs/                    本仓库文档与 OpenAPI 文档
 internal/conf/           配置 proto 与生成代码
 internal/server/         HTTP/gRPC 装配、编解码、静态托管、原始字节路由、中间件
@@ -260,6 +273,7 @@ web/                     前端接入位：README.md 说明约定，dist/ 目前
 | [`docs/api-guide.md`](docs/api-guide.md) | 通用约定、认证流程、逐个 RPC 的字段与错误、上传/下载/分享完整流程、错误码表 |
 | [`docs/permissions.md`](docs/permissions.md) | 角色与权限位表、等级与授权规则、节点访问判定顺序与示例、常见配置场景 |
 | [`docs/deployment.md`](docs/deployment.md) | 上线落地：对象存储（SeaweedFS）、SQLite 生产建议、反向代理与 TLS、首次启动清单、运维任务、前端部署、容器化 |
+| [`deploy/compose/README.md`](deploy/compose/README.md) | **一键起整套**：`docker compose up -d`（nagisa + SeaweedFS）、上传模式取舍、备份、排障 |
 | [`openapi.yaml`](openapi.yaml) | 生成的 OpenAPI 3.0.3 文档（已由 `tools/openapi` 富化，含 `bearerAuth` 等安全方案、共享错误响应与原始字节绑定） |
 | [`web/README.md`](web/README.md) | 前端接入约定与本地联调方式 |
 

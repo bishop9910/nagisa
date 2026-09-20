@@ -1,0 +1,150 @@
+# Nagisa netdisk + SeaweedFS — a complete, self-hosted deployment in one file.
+#
+#   cp .env.example .env     # edit the two REQUIRED secrets first
+#   docker compose up -d --build
+#   open http://127.0.0.1:8000/v1/system/health   # expect {"status":"ok",...}
+#
+# Read deploy/compose/README.md for the object-storage modes, backups and the
+# host-bind-mount variant. Every value below can be overridden from .env.
+
+name: nagisa
+
+services:
+  # -------------------------------------------------------------------------
+  # Object storage. Nagisa only speaks the standard S3 API, so this service is
+  # swappable for any other S3-compatible backend: point S3_ENDPOINT at it and
+  # delete this block.
+  # -------------------------------------------------------------------------
+  seaweedfs:
+    # Fully qualified so the REGISTRY_MIRROR below applies to this image too;
+    # `docker.io/` is a no-op for a normal network and the mirror host for a
+    # network that cannot reach Docker Hub.
+    image: ${REGISTRY_MIRROR:-docker.io/}chrislusf/seaweedfs:4.05
+    restart: unless-stopped
+    command:
+      - server
+      - -s3
+      - -dir=/data
+      # Both directories must be written out: -master.dir is NOT inherited from
+      # -dir, and the writability check runs before the inheritance logic, so
+      # omitting it aborts the startup with `Check Meta Folder ... Writable`.
+      - -master.dir=/data/meta
+      - -s3.config=/etc/seaweedfs/s3.json
+      # Bind the advertised address explicitly. Left alone, SeaweedFS picks a
+      # non-loopback interface and writes it into the cluster topology; when that
+      # interface is a VPN or a virtual adapter the process starts failing
+      # heartbeats and exits. The service name is resolved on the Compose
+      # network, and it is also how nagisa reaches this container.
+      - -ip=seaweedfs
+      # A volume is sealed at 30 GiB (SeaweedFS' own default), so this is only
+      # spelled out to make the number visible. Raise it if a single object can
+      # exceed it; lower it to spread writes over more volumes.
+      - -master.volumeSizeLimitMB=30720
+    environment:
+      # SeaweedFS is Go and has no cgroup-aware default, so it would otherwise
+      # size its caches from the *host* CPU count.
+      GOMAXPROCS: ${SEAWEED_GOMAXPROCS:-2}
+    volumes:
+      - seaweedfs-data:/data
+      - ./seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+    ports:
+      # Only needed so a browser can talk to S3 directly in presigned mode.
+      - "${SEAWEED_S3_PORT:-8333}:8333"
+    healthcheck:
+      # The image is Alpine-based, so wget is available. This checks that the S3
+      # listener answers at all; the bucket itself is created by Nagisa.
+      test: ["CMD", "wget", "-q", "-T", "3", "-O", "/dev/null", "http://127.0.0.1:8333/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    logging: &default-logging
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  # -------------------------------------------------------------------------
+  # The netdisk service: REST + gRPC + the built web front end + /docs/.
+  # -------------------------------------------------------------------------
+  nagisa:
+    build:
+      # Repository root, because the image compiles both the Go service and the
+      # front end out of this context.
+      context: ../..
+      dockerfile: Dockerfile
+      args:
+        # Baked into the binary as main.Version and shown by
+        # GET /v1/system/info. Docker cannot see .git, so it has to be passed.
+        VERSION: ${NAGISA_VERSION:-dev}
+        # Registry prefix for node/golang/alpine (all Docker Hub images).
+        # Empty means docker.io; a mirror host makes the build work where
+        # Docker Hub is unreachable. See .env.example.
+        REGISTRY_MIRROR: ${REGISTRY_MIRROR:-}
+    image: nagisa:${NAGISA_VERSION:-dev}
+    restart: unless-stopped
+    depends_on:
+      seaweedfs:
+        # Nagisa probes its bucket at startup and fails hard when the endpoint
+        # is unreachable, so wait for the listener rather than for the process.
+        condition: service_healthy
+    environment:
+      # --- paths inside the image (already absolute in the Dockerfile) -------
+      DATABASE_SOURCE: /app/data/nagisa.db
+      PASSWORD_KEY_FILE: /app/data/password_key.pem
+      WEB_ROOT: /app/web/dist
+
+      # --- secrets ----------------------------------------------------------
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env — openssl rand -base64 48}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+
+      # --- object storage ---------------------------------------------------
+      S3_ENDPOINT: seaweedfs:8333
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-nagisa}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-nagisa-secret}
+      S3_BUCKET: ${S3_BUCKET:-nagisa}
+      # Address presigned URLs are signed for. Must be reachable by the browser;
+      # empty keeps downloads on the server-side streaming endpoint. See .env.
+      S3_PUBLIC_ENDPOINT: ${S3_PUBLIC_ENDPOINT:-}
+      # proxy relays every chunk through this service (works everywhere);
+      # presigned hands the browser a direct-to-S3 URL (needs CORS + a public
+      # S3 address). The dotted form is the Kratos override for
+      # upload.default_mode in configs/config.yaml.
+      KRATOS_upload.default_mode: ${UPLOAD_MODE:-proxy}
+
+      # --- web --------------------------------------------------------------
+      # Same-origin deployment: leave empty and no CORS filter is needed at all.
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+    ports:
+      - "${NAGISA_HTTP_PORT:-8000}:8000"
+      # gRPC, loopback only by default: nothing outside this host needs it.
+      - "127.0.0.1:${NAGISA_GRPC_PORT:-9000}:9000"
+    volumes:
+      # Named volumes, not bind mounts: Docker copies the image's ownership
+      # (uid/gid 65532) onto a fresh named volume, which is what lets this
+      # non-root container write without an init script.
+      - nagisa-data:/app/data
+    user: "${NAGISA_UID:-65532}:${NAGISA_GID:-65532}"
+    healthcheck:
+      # The runtime image is Alpine, so busybox wget is available. This asks the
+      # service itself rather than just opening a socket. Note that
+      # /v1/system/health answers 200 even when a dependency is down (the verdict
+      # is in the body), so this proves the process serves HTTP, not that object
+      # storage is reachable — `docker compose logs nagisa` and a `deep=true`
+      # call are what tell those apart.
+      test: ["CMD", "wget", "-q", "-T", "4", "-O", "/dev/null", "http://127.0.0.1:8000/v1/system/health"]
+      interval: 15s
+      timeout: 6s
+      retries: 5
+      start_period: 25s
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+
+volumes:
+  nagisa-data:
+    name: nagisa-data
+  seaweedfs-data:
+    name: seaweedfs-data

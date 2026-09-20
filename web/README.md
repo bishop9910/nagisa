@@ -76,6 +76,8 @@ npm run build   # 输出到 web/dist
 go build -o bin/nagisa ./cmd/nagisa
 ```
 
+用 Docker 时这一步由镜像自己做：`Dockerfile` 的 `frontend` 阶段跑 `pnpm install --frozen-lockfile && pnpm run build`，产物直接落到镜像内的 `/app/web/dist`（对应配置的 `WEB_ROOT`）。所以 `docker compose up -d --build`（见 [`deploy/compose/README.md`](../deploy/compose/README.md)）出来的镜像打开就是网盘界面，不需要先在宿主机构建前端。
+
 Windows 上同样的两件事可以用仓库脚本完成（不需要 `make`）：
 
 ```powershell

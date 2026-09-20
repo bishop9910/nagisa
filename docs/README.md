@@ -13,6 +13,7 @@
 | 5 | [`../configs/README.md`](../configs/README.md) | 只想知道 `config.yaml` 里每个条目是干啥的：逐条大白话说明 |
 | 6 | [`configuration.md`](configuration.md) | 要改配置：加载与覆盖顺序、值格式约定、缺省时的实际默认值、环境变量注入、三套示例 |
 | 7 | [`deployment.md`](deployment.md) | 要上线：对象存储（SeaweedFS）、SQLite 生产建议、反向代理与 TLS、首启清单、运维任务、前端部署、容器化 |
+| 8 | [`../deploy/compose/README.md`](../deploy/compose/README.md) | 要用 Docker 一键起整套（nagisa + SeaweedFS）：上传模式取舍、备份、bind mount、排障 |
 
 ## 事实来源
 
@@ -51,6 +52,10 @@ make all        # 依次执行 api、config、generate、docs
 make build      # 构建到 ./bin/
 make test       # go test ./...
 make test-integration  # go test -tags integration ./test/integration/ -v
+make docker-build       # 构建镜像（前端 + 服务，alpine 运行段）
+make docker-up          # docker compose up -d --build（nagisa + SeaweedFS）
+make docker-down        # docker compose down（保留两个数据卷）
+make docker-logs        # docker compose logs -f nagisa
 ```
 
 ```powershell
@@ -106,3 +111,4 @@ go run ./tools/openapi -in openapi.yaml -out docs
 | 调整权限位或角色预设 | `permissions.md` 的权限目录与角色表 |
 | 调整访问判定顺序或 ACL 语义 | `permissions.md` 与 `api-guide.md` 的节点权限小节 |
 | 调整对象键布局、事务边界、维护任务 | `architecture.md` |
+| 改容器构建、镜像内路径、环境变量约定 | `deployment.md` 第 7 节与 `deploy/compose/README.md` |

@@ -80,6 +80,14 @@ func configSource(path string) (string, error) {
 
 func main() {
 	flag.Parse()
+
+	// `nagisa -health <url>` is the container healthcheck: the distroless
+	// runtime has no shell or HTTP client to run one with. It exits before any
+	// dependency is touched.
+	if runHealthProbe(*healthFlag) {
+		return
+	}
+
 	logger := log.NewLogger(
 		slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 			AddSource: true,

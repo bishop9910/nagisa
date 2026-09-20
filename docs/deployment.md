@@ -488,9 +488,95 @@ curl -sf -X POST "$BASE/v1/system/maintenance/run" \
 
 ## 7. 容器化
 
-仓库自带的 `Dockerfile` 分两段：构建段执行 `make build`，运行段基于 `debian:stable-slim`，把 `bin/`、`configs/`、`docs/`、`web/` 复制进镜像并 `CMD ["./nagisa", "-conf", "/app/configs"]`。
+### 7.1 镜像
 
-- `make build` 现在只构建 `./cmd/...`，产物是 **`bin/nagisa`**，与上面的启动命令一致。在 Windows 上可以用 `.\scripts\build.ps1 build` 得到同样的 `bin\nagisa.exe`（镜像内是 Linux 二进制，所以镜像构建本身仍应在 Linux 或 `docker build` 里跑 `make`）。
-- 镜像暴露 `EXPOSE 8000 9000`，并把 **`/app/data`** 声明为卷：数据库与 RSA 私钥默认落在该目录（`source: /app/data/nagisa.db`、`password_private_key_file: /app/data/password_key.pem`）。**务必挂载这个卷**，否则容器重建会同时丢掉数据与解密密码用的私钥。
-- 容器内访问对象存储时，`endpoint` 用服务名加端口（例如 `seaweedfs:8333`），`public_endpoint` 仍要写浏览器可达的地址。
-- 时区与证书：镜像已装 `ca-certificates` 与 `tzdata`；若 `public_base_url` / `endpoint` 用自签证书，开发环境可开 `data.object_storage.insecure_skip_verify`，生产不要开。
+`Dockerfile` 分三段，产出一个自带前端的镜像：
+
+| 阶段 | 基础镜像 | 做什么 |
+| --- | --- | --- |
+| `frontend` | `node:24-alpine` | `pnpm install --frozen-lockfile` 后 `pnpm run build`，产物落在 `web/dist`（`vite.config.ts` 的 `outDir` 就是那里） |
+| `backend` | `golang:1.25` | `CGO_ENABLED=0 go build -ldflags "-s -w -X main.Version=..." -o /out/nagisa ./cmd/nagisa` |
+| 运行 | `alpine:3.21` | `apk add ca-certificates tzdata`，再放二进制、`configs/`、`docs/`、`web/dist/`，以 uid/gid `65532` 运行（约 20 MB） |
+
+三个基础镜像都来自 Docker Hub，因此都受 `REGISTRY_MIRROR` 构建参数控制（见 7.2）。
+
+几个刻意的选择：
+
+- **`CGO_ENABLED=0`**：SQLite 驱动是 `modernc.org/sqlite`（纯 Go），不需要 libc，产出的是静态二进制。运行段因此是可换的——换成 `alpine`、`distroless` 还是 `scratch` 都能跑。
+- **为什么用 alpine 而不是 distroless**：distroless 更小更干净（无 shell、无包管理器），但它在 `gcr.io` 上，而 Docker Hub 的镜像站不代理 `gcr.io`。在连不上 `gcr.io` 的网络里，distroless 版本**根本构建不出来**；alpine 在 Docker Hub 上，所有镜像站都有。想换回去只要改 `FROM`：`gcr.io/distroless/static-debian12:nonroot`（二进制是静态的，两行改动即可）。
+- **不做代码生成**：`*.pb.go`、`ent` 生成代码、`wire_gen.go`、`configs/config.yaml`、`docs/` 都已提交，构建只需要模块代理，不需要 `buf`/`wire`。
+- **版本号由构建参数传入**：`.git` 被 `.dockerignore` 排除，`make build` 里的 `git describe` 在镜像里拿不到东西，所以 `VERSION` 必须由 `make docker-build` 或 `--build-arg VERSION=x` 显式传入，否则显示成 `dev`。
+- **依赖层独立缓存**：`go.mod`/`go.sum` 与 `package.json`/`pnpm-lock.yaml` 各自先 COPY 再安装，改业务代码不会重新下载整张依赖图。
+- **`/app/data` 在镜像里就属于 uid 65532**：Docker 会把这份属主继承给**新建的命名卷**，非 root 容器因此不需要 init 脚本或 chown sidecar 就能写库和私钥。
+
+启动命令是 `nagisa -conf /app/configs`，镜像里预设了三个环境变量，让路径不再依赖工作目录：`DATABASE_SOURCE=/app/data/nagisa.db`、`PASSWORD_KEY_FILE=/app/data/password_key.pem`、`WEB_ROOT=/app/web/dist`。`/docs/` 由 `internal/server/http.go` 从 `./docs` 提供，工作目录是 `/app`，正好对上。
+
+### 7.2 构建与运行
+
+```bash
+make docker-build                     # 版本号由 Makefile 从 git describe 取，并带上 revision/created 标签
+make docker-up                        # docker compose up -d --build（nagisa + SeaweedFS）
+make docker-down                      # 停栈，保留两个数据卷
+docker run --rm -p 8000:8000 -p 9000:9000 \
+  -e JWT_SECRET="$(openssl rand -base64 48)" \
+  -e ADMIN_PASSWORD='Admin@12345' \
+  -e S3_ENDPOINT=192.168.1.23:8333 \
+  -v nagisa-data:/app/data \
+  nagisa:$(git describe --tags --always)
+```
+
+> 单跑容器时 `S3_ENDPOINT=127.0.0.1:8333` 指向的是**容器自己**，所以要写宿主机（或任意可达主机）的地址：Linux 上可以加 `--add-host=host.docker.internal:host-gateway` 然后用 `host.docker.internal:8333`，也可以直接用宿主机 IP。用第 7.4 节的 compose 则不需要操心，那里已经用服务名 `seaweedfs:8333` 接好了。
+
+> **`docker.io` 连不上时**（典型报错 `failed to resolve reference "docker.io/chrislusf/seaweedfs:4.05": dial tcp ... i/o timeout`）：给 `make docker-build` 传 `--build-arg REGISTRY_MIRROR=<镜像站>/`，或在 `deploy/compose/.env` 里设 `REGISTRY_MIRROR=<镜像站>/`。三个基础镜像加对象存储镜像都会走这个前缀。也可以给 Docker 守护进程配 `registry-mirrors`（`/etc/docker/daemon.json`），但那只对 `docker.io` 生效且要重启 docker。
+>
+> 构建还需要 Go 模块代理与 npm registry；受限网络里给 `GOPROXY` 指一个可用代理即可（模块校验仍按 `go.sum` 进行）。
+
+常用环境变量（全部都是 `configs/config.yaml` 里 `${KEY:default}` 占位符或 `KRATOS_` 覆盖）：
+
+| 变量 | 作用 |
+| --- | --- |
+| `JWT_SECRET` | 签发访问令牌与所有签名 URL。**生产必须显式设置**；留空则每次启动随机生成，重启后令牌与下载链接全失效 |
+| `ADMIN_PASSWORD` | 内置管理员首启口令；留空则随机生成并只在日志里打印一次 |
+| `S3_ENDPOINT` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` / `S3_BUCKET` | 对象存储地址与凭据。**容器内的 `127.0.0.1` 是容器自己**，指向宿主机要用宿主机的可达地址（Linux 上可加 `--add-host=host.docker.internal:host-gateway`）或 compose 里的服务名 |
+| `S3_PUBLIC_ENDPOINT` | 浏览器可达的对象存储地址，用于签发预签名直链；留空则下载走服务端流式端点（见 1.5） |
+| `WEB_ROOT` / `DATABASE_SOURCE` / `PASSWORD_KEY_FILE` | 已由镜像设好绝对值，一般不用动 |
+| `KRATOS_upload.default_mode` | `proxy` 或 `presigned`；点号形式是 Kratos 的覆盖写法 |
+| `KRATOS_auth.allow_plain_password` | 永远不要设为 true |
+
+`EXPOSE 8000 9000`；**没有 `VOLUME` 指令**——容器编排应当显式声明卷，镜像级匿名卷只会在裸 `docker run` 时把数据藏进匿名卷里。
+
+### 7.3 健康检查
+
+镜像里可以直接用的探针有两个，Compose 用的是第一个：
+
+```bash
+# 1. 用镜像里的 busybox wget（alpine 自带）
+wget -q -T 4 -O /dev/null http://127.0.0.1:8000/v1/system/health
+
+# 2. 用二进制自带的 -health 子命令
+docker inspect --format '{{.State.Health.Status}}' <container>
+nagisa -health http://127.0.0.1:8000/v1/system/health
+```
+
+`-health` 发一次 GET，只有返回 200 且响应体里 `"status":"ok"` 才退 0，否则退 1；它不启动服务、也不碰数据库，所以可以当 liveness 探针单独跑。`wget` 那条只看状态码——注意 `/v1/system/health` **即使依赖不可用也返回 200**，结论在响应体里：想区分「进程活着但对象存储挂了」，用 `?deep=true` 看 `checks` 字段，或直接读日志。
+
+用 distroless 做运行段时没有 `wget`/`curl`/shell，这时 `-health` 就是唯一能用的探针——这也是它存在的原因。
+
+### 7.4 Compose 整套部署（nagisa + SeaweedFS）
+
+`deploy/compose/` 下是开箱可用的一套：两个服务、两个命名卷、健康检查、日志轮转。
+
+```bash
+cd deploy/compose
+cp .env.example .env      # 至少改 JWT_SECRET 与 ADMIN_PASSWORD
+docker compose up -d --build
+```
+
+细节（上传模式 proxy/presigned 的取舍、备份、bind mount、反代、排障）见 [`deploy/compose/README.md`](../deploy/compose/README.md)。要点：
+
+- 默认 `UPLOAD_MODE=proxy`：每个分片经服务端转发，浏览器不需要能访问对象存储，也不涉及 CORS——最不容易出错。要换成直传就把 `UPLOAD_MODE=presigned` 并配上浏览器可达的 `S3_PUBLIC_ENDPOINT`。
+- 容器内访问对象存储用服务名 `seaweedfs:8333`；`public_endpoint` 仍要写浏览器可达的地址。
+- 命名卷的属主从镜像继承（uid 65532），非 root 容器因此可以直接写；换成宿主机 bind mount 时必须把目录 `chown` 成 65532（或设 `NAGISA_UID`/`NAGISA_GID`）。
+- 只用 SQLite 时**不要起多个实例**（2.2 节）。
+- 时区与证书：镜像已含 `ca-certificates` 与 `tzdata`；若 `public_base_url` / `endpoint` 用自签证书，开发环境可开 `data.object_storage.insecure_skip_verify`，生产不要开。
+

@@ -40,6 +40,13 @@ bin/
 /data/
 web/dist
 
+# Compose deployment state: .env holds JWT_SECRET and the admin password, and
+# the bind-mount variant keeps the database and RSA key next to it. Only
+# .env.example is meant to be committed.
+deploy/compose/.env
+deploy/compose/data/*
+!deploy/compose/data/.keep
+
 
 # Develop tools
 .vscode/

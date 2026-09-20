@@ -1,0 +1,1 @@
+Keeps /app/data present in the image so a fresh named volume inherits uid 65532.

@@ -1,0 +1,52 @@
+# Keep the build context small and the layer cache honest.
+#
+# The two things that matter most here:
+#   * frontend/node_modules is ~100x larger than the sources it feeds and is
+#     recreated inside the image by `pnpm install --frozen-lockfile`;
+#   * web/dist is a build output the image produces itself, so copying a stale
+#     one from the workstation would silently ship an old front end.
+
+# --- dependencies and build output -----------------------------------------
+**/node_modules
+web/dist
+bin/
+.cache/
+
+# --- runtime state: never bake a database, a private key or a log into an image
+data/
+*.db
+*.db-wal
+*.db-shm
+*.pem
+*.key
+*.crt
+*.cert
+*.log
+
+# --- VCS and editor noise ---------------------------------------------------
+.git
+.gitattributes
+.gitignore
+.github
+.vscode
+.idea
+*.swp
+*.swo
+
+# --- local test artifacts ---------------------------------------------------
+coverage.out
+*.test
+*.out
+
+# --- npm/pnpm configuration -------------------------------------------------
+# A repo-local .npmrc or .pnpmfile.cjs would silently change how the image
+# installs its dependencies, so the build uses the manifests alone.
+.npmrc
+**/.npmrc
+.pnpmfile.cjs
+**/.pnpmfile.cjs
+
+# --- container plumbing -----------------------------------------------------
+# A real .env holds secrets and is read by Compose on the host, never by the
+# build; .env.example is copied so the image ships the template.
+deploy/compose/.env
