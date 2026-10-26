@@ -307,6 +307,64 @@ func TestEvaluateFolderPassword(t *testing.T) {
 	}
 }
 
+// TestEvaluateSuperAdminReachesEveryNode pins the management duty of the top
+// role: node level arrangements (visibility, ACL, folder password, ownership)
+// cannot hide content from the administrator, while the account permission set
+// still caps what it may do there.
+func TestEvaluateSuperAdminReachesEveryNode(t *testing.T) {
+	owner := uuid.Must(uuid.NewV7())
+	adminID := uuid.Must(uuid.NewV7())
+	admin := account(adminID, RoleAdmin, RankAdmin, PermAll)
+
+	priv := folder(uuid.Must(uuid.NewV7()), owner, VisibilityPrivate)
+	priv.PasswordHash = "hash"
+	acl := map[uuid.UUID][]*AclEntry{
+		priv.ID: {deny(SubjectTypeEveryone, "", PermNodeScope, true)},
+	}
+
+	access := EvaluateNodeAccess(NodeAccessInput{Caller: admin, Node: priv, AclByNode: acl})
+	if access.Locked {
+		t.Errorf("the administrator is blocked by a folder password")
+	}
+	if !access.Perms.Has(PermDelete | PermEdit | PermUpload | PermTrashManage | PermAclManage) {
+		t.Errorf("the administrator cannot manage a foreign node: %b", access.Perms)
+	}
+	if access.Owned {
+		t.Errorf("a foreign node is reported as owned")
+	}
+
+	// The account permission set stays the ceiling: narrowing the account
+	// narrows what it can do on other accounts' nodes too.
+	narrowed := account(adminID, RoleAdmin, RankAdmin, PermView|PermTrashManage)
+	access = EvaluateNodeAccess(NodeAccessInput{Caller: narrowed, Node: priv, AclByNode: acl})
+	if access.Perms.Has(PermDelete | PermEdit | PermUpload) {
+		t.Errorf("the administrator exceeded its account permissions: %b", access.Perms)
+	}
+	if !access.Perms.Has(PermView | PermTrashManage) {
+		t.Errorf("the administrator lost a permission it holds: %b", access.Perms)
+	}
+
+	// The bypass belongs to the top role only: a promoted manager with the
+	// trash management permission still sees nothing of a foreign private
+	// folder, otherwise every manager could browse the whole instance.
+	manager := account(uuid.Must(uuid.NewV7()), RoleManager, RankManager, PermAll)
+	access = EvaluateNodeAccess(NodeAccessInput{Caller: manager, Node: priv, AclByNode: nil})
+	if access.Perms.Has(PermDelete | PermEdit | PermUpload) {
+		t.Errorf("a manager managed a foreign private folder: %+v", access)
+	}
+
+	// The owner keeps the owned flag, so sharing stays restricted to the owner.
+	self := folder(uuid.Must(uuid.NewV7()), adminID, VisibilityPrivate)
+	if access := EvaluateNodeAccess(NodeAccessInput{Caller: admin, Node: self}); !access.Owned {
+		t.Errorf("the administrator lost the owned flag on its own node")
+	}
+
+	// Anonymous and share callers never take the bypass.
+	if AnonymousCaller().IsSuperAdmin() {
+		t.Errorf("an anonymous caller is treated as the administrator")
+	}
+}
+
 func TestCanManageUserFollowsRank(t *testing.T) {
 	adminCaller := account(uuid.Must(uuid.NewV7()), RoleAdmin, RankAdmin, PermAll)
 	managerCaller := account(uuid.Must(uuid.NewV7()), RoleManager, RankManager, PermAll)

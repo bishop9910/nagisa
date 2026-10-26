@@ -8,7 +8,7 @@ Nagisa 的授权分三层：**账号级**（角色 + 等级 + 权限位掩码）
 
 | 角色 | 机器名 | 默认等级 | 中文名 | 默认权限集合 | 位掩码 | 说明 |
 | --- | --- | --- | --- | --- | --- | --- |
-| `ROLE_ADMIN` | `admin` | 1000（固定） | 超级管理员 | 全部 12 项 | 4095 | 内置最高权限账号，可管理所有账号与系统信息；任何其他账号都无法管理它，它自己也改不了自己的资料 |
+| `ROLE_ADMIN` | `admin` | 1000（固定） | 超级管理员 | 全部 12 项 | 4095 | 内置最高权限账号，可管理所有账号与系统信息，**并对全站节点通行**（见第 4 节第 0 步）；任何其他账号都无法管理它，它自己也改不了自己的资料 |
 | `ROLE_MANAGER` | `manager` | 500 | 管理员 | `view` `download` `upload` `edit` `delete` `trash_manage` `share` `acl_manage` `user_manage` `audit_read` `storage_manage` | 2047 | 由上级管理员提拔，可管理权限低于自己的账号；默认不含 `system_manage` |
 | `ROLE_USER` | `user` | 100 | 普通用户 | `view` `download` `upload` `edit` `delete` `trash_manage` `share` `acl_manage` | 255 | 管理自己的文件，不能管理其他账号 |
 | `ROLE_GUEST` | `guest` | 10 | 访客 | `view` `download` | 3 | 默认只读，仅可浏览与下载；**内置访客账号锁死**，见第 3 节与 7.3 |
@@ -66,7 +66,7 @@ Nagisa 的授权分三层：**账号级**（角色 + 等级 + 权限位掩码）
 - 目标账号的会话在以下情况被全部吊销：修改密码、重置密码、`status` 改为非 `ACTIVE`、删除账号。
 - 禁用与删除的区别：`USER_STATUS_DISABLED` 保留账号但不能登录（登录返回 `NETDISK_ACCOUNT_DISABLED`）；`USER_STATUS_DELETED` 是软删除，从列表隐藏。
 - 修改 `status` 为 `USER_STATUS_DELETED` 会被拒绝（`NETDISK_INVALID_ARGUMENT`），删除必须走 `DeleteUser`。
-- 自助修改资料当前没有对应 RPC：管理路径拒绝自我管理，而 `service` 层没有暴露别的入口。
+- 自助修改资料目前没有对应 RPC：`UserUsecase.UpdateSelf` 只改自己的 `nickname` / `email` / `avatar_url`，并且刻意绕开上面的管理规则（否则「拒绝自我管理」会让它永远失败）；proto 与前端都没有暴露这个入口。
 
 ## 4. 节点访问判定顺序
 
@@ -74,15 +74,18 @@ Nagisa 的授权分三层：**账号级**（角色 + 等级 + 权限位掩码）
 
 | 步骤 | 规则 | 实现要点 |
 | --- | --- | --- |
-| 0. 可见范围折叠 | 沿祖先链取**最严格**的可见范围（`private` < `internal` < `public`，未指定按 `private`），私有父目录中的公开子节点依然不公开 | `effectiveVisibility` |
-| 1. 锁定检查 | 祖先链上第一个设有密码且未被本调用方解锁的节点，或节点自身设有密码且未解锁时，`locked = true`；**属主例外**（属主不会被自己设的密码挡住） | 祖先自外向内查找，记录最外层的 `lockedBy` |
-| 2. 属主捷径 | 调用方是节点属主时：**立即返回**，权限 = `PermNodeScope ∩ 账号权限`，并清除 `locked` | 账号权限仍是上限：账号被收回 `upload` 后，它自己的文件夹也不能上传 |
-| 3. 可见范围授予 | `public`：已认证调用方与匿名调用方都得到 `view\|download`；`internal`：仅已认证调用方得到 `view\|download`；`private`：不给任何额外授予 | 匿名调用方的上限是访客预设（`view\|download`） |
-| 4. 显式拒绝 | 节点自身的条目 → 全部生效；祖先条目 → **无论 `inherit` 与否都作用于整棵子树**。所有命中的拒绝位取并集 | `SUBJECT_TYPE_EVERYONE` 匹配任何调用方（含匿名） |
-| 5. 显式允许 | 节点自身的条目全部生效；祖先条目仅当 `inherit = true` 时生效。所有命中的允许位取并集 | `SUBJECT_TYPE_ROLE` 用角色机器名做大小写不敏感比较 |
-| 6. 合并 | `perms = (可见范围授予 \| 显式允许) &^ 显式拒绝` | 拒绝优先于允许 |
-| 7. 账号权限上限 | `perms = perms ∩ PermNodeScope ∩ 账号权限`；匿名调用方以访客预设为上限 | 这一步保证节点权限永远无法超越账号权限 |
-| 8. 锁定收敛 | `locked` 为真时 `perms = perms ∩ view` | 未解锁时只保留 `view`，用于展示目录本身；`locked = false` 但权限为零的节点在列表中会被丢弃 |
+| 0. 超级管理员通行 | 调用方是 `ROLE_ADMIN` 时直接得到 `PermNodeScope ∩ 账号权限`，`locked = false`；可见范围、访问名单、文件夹密码与属主都不参与判定 | `access.go` 的 `Caller.IsSuperAdmin()`。只认角色，不认等级：被提拔到 `rank = 999` 的 `manager` 依然要逐节点授权。这是全站内容管理的职责，也是唯一能跨账号处理违规文件的手段；账号权限集仍是上限 |
+| 1. 可见范围折叠 | 沿祖先链取**最严格**的可见范围（`private` < `internal` < `public`，未指定按 `private`），私有父目录中的公开子节点依然不公开 | `effectiveVisibility` |
+| 2. 锁定检查 | 祖先链上第一个设有密码且未被本调用方解锁的节点，或节点自身设有密码且未解锁时，`locked = true`；**属主例外**（属主不会被自己设的密码挡住） | 祖先自外向内查找，记录最外层的 `lockedBy` |
+| 3. 属主捷径 | 调用方是节点属主时：**立即返回**，权限 = `PermNodeScope ∩ 账号权限`，并清除 `locked` | 账号权限仍是上限：账号被收回 `upload` 后，它自己的文件夹也不能上传 |
+| 4. 可见范围授予 | `public`：已认证调用方与匿名调用方都得到 `view\|download`；`internal`：仅已认证调用方得到 `view\|download`；`private`：不给任何额外授予 | 匿名调用方的上限是访客预设（`view\|download`） |
+| 5. 显式拒绝 | 节点自身的条目 → 全部生效；祖先条目 → **无论 `inherit` 与否都作用于整棵子树**。所有命中的拒绝位取并集 | `SUBJECT_TYPE_EVERYONE` 匹配任何调用方（含匿名） |
+| 6. 显式允许 | 节点自身的条目全部生效；祖先条目仅当 `inherit = true` 时生效。所有命中的允许位取并集 | `SUBJECT_TYPE_ROLE` 用角色机器名做大小写不敏感比较 |
+| 7. 合并 | `perms = (可见范围授予 \| 显式允许) &^ 显式拒绝` | 拒绝优先于允许 |
+| 8. 账号权限上限 | `perms = perms ∩ PermNodeScope ∩ 账号权限`；匿名调用方以访客预设为上限 | 这一步保证节点权限永远无法超越账号权限 |
+| 9. 锁定收敛 | `locked` 为真时 `perms = perms ∩ view` | 未解锁时只保留 `view`，用于展示目录本身；`locked = false` 但权限为零的节点在列表中会被丢弃 |
+
+第 0 步对第 8 步没有豁免权：管理员的账号权限被改成「只看」之后，它在别人的私有目录里也只剩 `view`；但节点级的可见范围、访问名单与密码对它一律无效。
 
 `RequireAccess` 在判定之后再检查节点状态：回收站中的节点对没有 `trash_manage` 的调用方表现为 `NETDISK_NOT_FOUND`；`locked` 为真返回 `NETDISK_NODE_LOCKED`；权限不足返回 `NETDISK_PERMISSION_DENIED`。
 
@@ -107,6 +110,8 @@ Nagisa 的授权分三层：**账号级**（角色 + 等级 + 权限位掩码）
 
 结论：`private` 下只有属主与 alice 能看到 `F`，bob、访客与匿名调用方在列表里看不到它。直接按 id 访问（`GetNode`）得到 `NETDISK_PERMISSION_DENIED`；而以 `F` 作为父目录调用 `ListNodes` 时，若 `F` 未解锁会先得到 `NETDISK_NODE_LOCKED`（父目录的锁定检查发生在权限检查之前）。
 
+**把 `F` 的属主换成 alice（管理员不再是属主）**：内置管理员依然得到 `255`，`locked = false`，`owned = false`（第 0 步在属主捷径之前）。因此它可以看到、移动、删除、还原与彻底清除这个目录里的内容。
+
 **把同一个文件夹改成 `visibility = internal`（名单不变）后：**
 
 | 调用方 | 可见范围授予 | 显式允许 | 显式拒绝 | 结果 |
@@ -129,6 +134,24 @@ Nagisa 的授权分三层：**账号级**（角色 + 等级 + 权限位掩码）
 - 节点自身的条目总是生效，与 `inherit` 无关；
 - 属主捷径在拒绝之前执行，所以属主不会被自己节点上的拒绝条目挡住（但会被账号权限上限挡住）；
 - 锁定收敛发生在最后一步，且只在未解锁时生效。
+
+### 4.2 回收站的范围与彻底清除
+
+回收站没有自己的一套权限，它沿用上面的判定；区别在于「可见范围」与「跨账号」：
+
+| 能力 | `ROLE_ADMIN`（超级管理员） | 其他账号 |
+| --- | --- | --- |
+| `ListTrash` | 全站已删除节点，可按 `filter` 收窄（`owner_id` / `name` / `kind` / `status`） | 只有自己的已删除节点；`trash_manage` 不会让它看到别人的回收站 |
+| `RestoreNodes` / `PurgeNodes`（按 id） | 任意节点 | 自己拥有的节点；或访问名单里授予了 `trash_manage` 的节点（按 id 可以操作，但它不会出现在列表里） |
+| `EmptyTrash` | 清空全站回收站，可用 `trashed_before` 只清更早的记录 | 清空自己的回收站 |
+| 还原的目标目录 | 目标目录上需要 `upload`（管理员通过第 0 步天然满足） | 同样需要目标上的 `upload`；还原到自己拥有的目录天然满足，还原到别人的只读目录会返回 `NETDISK_PERMISSION_DENIED` |
+
+补充语义：
+
+- 「删除」是把节点移进回收站（`status = TRASHED`，记住原父目录），可还原；「彻底清除」是删除子树的行并释放对象存储里的内容，不可恢复。
+- `EmptyTrash` 只清除**每个已删除子树的顶端**：一个被删目录的子节点会随父目录一起释放，不会被重复统计；这也是它在有大量孤立子节点时仍然很快的原因。
+- 把节点移进回收站会立即让指向它的分享链接失效（见第 6 节），所以它是撤下违规内容的可用手段；服务器没有回收站保留期的下限，`trashed_before` 就是给「立即清除」用的。
+- 维护任务里的回收站清理（`internal/biz/system.go` 的 `SystemUsecase.TrashRetention`）按 `storage.trash_retention`（默认 `2592000s`）自动清理，与这两个接口互不影响。
 
 ## 5. 文件夹即节点
 
@@ -157,6 +180,7 @@ Nagisa 的授权分三层：**账号级**（角色 + 等级 + 权限位掩码）
 | 密码只收敛到 `view` | 链接设有密码且未解锁时，有效权限被收敛为 `view`，其余能力在解锁后才生效 |
 | 匿名调用方不享受任何账号权限 | 访问者通过链接得到的权限完全来自链接能力集合，与它（可能存在的）账号令牌无关 |
 | 链接令牌与账号令牌互不通用 | 链接访问令牌（`access_token`）只承载分享 id，只能用于三个匿名接口 |
+| 节点离开活动树即失效 | 分享指向的节点被移进回收站或彻底清除后，`AccessShare`、子节点浏览与下载一律返回 `NETDISK_NOT_FOUND`；把节点还原回活动树后链接重新可用 |
 
 ## 7. 常见配置示例
 

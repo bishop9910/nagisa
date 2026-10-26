@@ -20,6 +20,10 @@ option objc_class_prefix = "APINetdiskV1";
 // apply to files and folders alike.
 //
 // Access to a node is decided in this order:
+//   0. the instance administrator (ROLE_ADMIN) manages every node: it holds
+//      every node level permission on it regardless of ownership, visibility,
+//      ACL entries or folder passwords. Its account permission set still caps
+//      the result;
 //   1. the caller must hold PERMISSION_VIEW (or the permission matching the
 //      operation) in its account permission set;
 //   2. the owner of a node always holds every permission on it;
@@ -161,7 +165,9 @@ service NodeService {
     };
   }
 
-  // RestoreNodes restores nodes from the trash.
+  // RestoreNodes restores nodes from the trash to their original parent, or to
+  // target_parent_id. The owner and the instance administrator can always
+  // restore; anybody else needs upload on the target folder.
   rpc RestoreNodes (RestoreNodesRequest) returns (NodeSet) {
     option (google.api.http) = {
       post: "/v1/nodes/trash/restore"
@@ -170,7 +176,8 @@ service NodeService {
   }
 
   // PurgeNodes permanently deletes nodes and their stored objects. Requires
-  // PERMISSION_TRASH_MANAGE.
+  // PERMISSION_TRASH_MANAGE on the node; the instance administrator satisfies
+  // this on every node.
   rpc PurgeNodes (PurgeNodesRequest) returns (PurgeNodesReply) {
     option (google.api.http) = {
       post: "/v1/nodes/trash/purge"
@@ -178,7 +185,10 @@ service NodeService {
     };
   }
 
-  // EmptyTrash purges every trashed node visible to the caller.
+  // EmptyTrash permanently deletes the trash roots visible to the caller: the
+  // whole instance for the instance administrator, only the caller's own nodes
+  // for everybody else. Subtrees go with their root, so a child of a trashed
+  // folder is never counted twice.
   rpc EmptyTrash (EmptyTrashRequest) returns (PurgeNodesReply) {
     option (google.api.http) = {
       post: "/v1/nodes/trash/empty"

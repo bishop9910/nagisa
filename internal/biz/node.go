@@ -906,9 +906,25 @@ func (uc *NodeUsecase) RestoreNodes(ctx context.Context, in RestoreNodesInput) (
 				target = node.OriginalParentID
 			}
 			if target != uuid.Nil {
-				if _, err := uc.repo.FindNodeByID(ctx, target); err != nil {
+				parent, err := uc.repo.FindNodeByID(ctx, target)
+				if err != nil {
 					// The original parent is gone: fall back to the root.
 					target = uuid.Nil
+				} else {
+					// Restoring is a write inside the destination folder, so it
+					// needs the same upload permission an upload would need.
+					// Without the check a restore could place a node into a
+					// folder the caller may only read.
+					access, err := uc.Evaluate(ctx, caller, parent)
+					if err != nil {
+						return err
+					}
+					if access.Locked {
+						return ErrNodeLocked
+					}
+					if !access.Perms.Has(PermUpload) {
+						return ErrPermissionDenied
+					}
 				}
 			}
 			parentPath, parentDepth, err := uc.parentLocation(ctx, target)
@@ -1112,7 +1128,10 @@ func (uc *NodeUsecase) TrashNodes(ctx context.Context, parent uuid.UUID, opts ..
 		// 不带目录时只列被删子树的顶端：里面的文件不该和被删的文件夹平铺在一起。
 		query.TrashRoots = true
 	}
-	if !caller.Has(PermTrashManage) {
+	// 管理全站回收站是超级管理员的职责：只有它会跨越属主查看（并清空）
+	// 别人的回收站。其余账号即使持有 trash_manage 也只在自己的回收站里生效，
+	// 否则一个有 trash_manage 的普通账号会看到整台服务器的删除内容。
+	if !caller.IsSuperAdmin() {
 		owner := caller.UserID
 		query.OwnerID = &owner
 	}
@@ -1135,15 +1154,19 @@ func (uc *NodeUsecase) TrashNodes(ctx context.Context, parent uuid.UUID, opts ..
 	return out, total, nil
 }
 
-// EmptyTrash purges every trashed node the caller may manage.
+// EmptyTrash purges every trashed node the caller may manage: the whole
+// instance for the administrator, its own trash for everybody else.
 func (uc *NodeUsecase) EmptyTrash(ctx context.Context, before *time.Time) ([]uuid.UUID, int64, error) {
 	caller := CallerFromContext(ctx)
 	if !caller.IsAuthenticated() {
 		return nil, 0, ErrUnauthenticated
 	}
 	status := NodeStatusTrashed
-	query := NodeQuery{Status: &status, IncludeTrashed: true}
-	if !caller.Has(PermTrashManage) {
+	// Only the top of every trashed subtree is purged: purging a folder already
+	// removes its descendants, so listing them as well would make the batch fail
+	// on the rows the first item took away.
+	query := NodeQuery{Status: &status, IncludeTrashed: true, TrashRoots: true}
+	if !caller.IsSuperAdmin() {
 		owner := caller.UserID
 		query.OwnerID = &owner
 	}

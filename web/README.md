@@ -5,15 +5,16 @@
 ## 目录约定
 
 ```
+frontend/          前端源码（Vue 3 + Vite + TypeScript），随仓库提供
 web/
-  dist/            构建产物，Kratos HTTP 服务器从这里读取静态文件
+  dist/            构建产物，Kratos HTTP 服务器从这里读取静态文件（不提交）
     index.html     入口文档，也是 SPA 回退页
     assets/        带内容哈希的静态资源
-  src/             前端源码（本仓库不提供，自行初始化）
 ```
 
-`web/dist` 里目前只有一个占位 `index.html`：当前端还没构建时，访问 `/` 会看到它，
-接口本身不受影响，可以先把后端跑起来。
+`web/dist` **不在版本库里**（`.gitignore` 忽略它），由 `frontend/` 构建产生：`pnpm run build`
+的输出目录就是 `../web/dist`。没有它时 `/` 会由 `internal/server/web.go` 里的占位页回答
+（提示前端尚未构建），接口与 `/docs/` 都不受影响，可以先把后端跑起来。
 
 ## 后端提供了什么
 
@@ -58,21 +59,24 @@ web/
 
 ## 本地开发
 
-前端开发服务器通常在 `http://127.0.0.1:5173`。把它的源站加进
-`configs/config.yaml` 的 `web.cors_origins`，然后：
+前端在 `frontend/`，Vite 开发服务器固定 `http://127.0.0.1:5173`，并把 `/v1` 与 `/docs`
+代理到 `VITE_DEV_API_TARGET`（默认 `http://127.0.0.1:8000`，见 `frontend/vite.config.ts`）。
+因为浏览器里只有一个源站，联调**不需要**改后端的 `web.cors_origins`：
 
 ```bash
 # 后端
 go run ./cmd/nagisa -conf ./configs
 
-# 前端（使用你自己的工具链）
-npm run dev -- --proxy /v1=http://127.0.0.1:8000
+# 前端（另开一个终端）
+cd frontend
+pnpm install
+pnpm dev          # http://127.0.0.1:5173 上已经带好 /v1 与 /docs 代理
 ```
 
 生产环境直接构建到 `web/dist`，后端会连同接口一起提供：
 
 ```bash
-npm run build   # 输出到 web/dist
+cd frontend && pnpm build   # = vue-tsc --build + vite build，输出到 ../web/dist
 go build -o bin/nagisa ./cmd/nagisa
 ```
 
@@ -81,7 +85,7 @@ go build -o bin/nagisa ./cmd/nagisa
 Windows 上同样的两件事可以用仓库脚本完成（不需要 `make`）：
 
 ```powershell
-npm run build                # 输出到 web\dist
+cd frontend; pnpm build      # 输出到 ..\web\dist
 .\scripts\build.ps1 build    # 产出 .\bin\nagisa.exe
 .\scripts\build.ps1 run      # 用 ./configs 启动后端
 ```

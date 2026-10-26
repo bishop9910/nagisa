@@ -384,7 +384,7 @@ Go 客户端的关键两步是 `x509.ParsePKIXPublicKey` 与 `rsa.EncryptOAEP(sh
 
 ## NodeService
 
-文件夹与文件都是节点，因此描述、可见范围、ACL 与密码对所有节点一致。判定一个节点上的权限时遵循固定顺序（账号权限上限 → 属主通行 → 显式拒绝 → 显式允许 → 可见范围 → 文件夹密码），逐条解释见 [`permissions.md`](permissions.md)。
+文件夹与文件都是节点，因此描述、可见范围、ACL 与密码对所有节点一致。判定一个节点上的权限时遵循固定顺序（超级管理员通行 → 可见范围折叠 → 密码锁定 → 属主通行 → 可见范围授予 → 显式拒绝 → 显式允许 → 账号权限上限 → 锁定收敛），逐条解释见 [`permissions.md`](permissions.md)。内置超级管理员（`ROLE_ADMIN`）在第 0 步就拿到 `PermNodeScope ∩ 账号权限`，因此它不需要被加进任何访问名单就能查看、移动、删除、还原与彻底清除全站节点。
 
 ### `ListNodes`
 
@@ -425,7 +425,7 @@ Go 客户端的关键两步是 `x509.ParsePKIXPublicKey` 与 `rsa.EncryptOAEP(sh
 | 项 | 内容 |
 | --- | --- |
 | HTTP | `GET /v1/nodes/trash/list` |
-| 鉴权 | 需要令牌；无 `PERMISSION_TRASH_MANAGE` 时只看到自己拥有的回收站条目 |
+| 鉴权 | 需要令牌；内置超级管理员看到全站回收站条目（可用 `filter` 里的 `owner_id` 收窄），其他账号只看到自己拥有的条目——`PERMISSION_TRASH_MANAGE` 不会让它看到别人的回收站 |
 | 请求 | `page_size`、`page_token`、`filter`（同 `ListNodes`，另支持 `trashed_at` 区间）、`order_by`、`original_parent_id` |
 | 回复 | `NodeSet` |
 | 错误 | `NETDISK_UNAUTHENTICATED`、`NETDISK_INVALID_ARGUMENT` |
@@ -561,19 +561,19 @@ Go 客户端的关键两步是 `x509.ParsePKIXPublicKey` 与 `rsa.EncryptOAEP(sh
 | 项 | 内容 |
 | --- | --- |
 | HTTP | `POST /v1/nodes/trash/restore` |
-| 鉴权 | 需要令牌；属主可直接还原，否则需 `PERMISSION_TRASH_MANAGE` |
+| 鉴权 | 需要令牌；被删节点上需属主或 `PERMISSION_TRASH_MANAGE`（内置超级管理员对任意节点都满足），且目标目录上需 `upload`——还原是往目标目录里写，不能还原进一个只读目录 |
 | 请求 | `ids[]`（必填）、`target_parent_id`（空 = 还原到 `original_parent_id`）、`conflict_policy` |
 | 回复 | `NodeSet` |
 | 错误 | `NETDISK_INVALID_ARGUMENT`（节点不在回收站、名称非法、超深度）、`NETDISK_NOT_FOUND`、`NETDISK_PERMISSION_DENIED`、`NETDISK_NAME_CONFLICT` |
 
-原父目录已不存在时自动回退到根目录。
+原父目录已不存在时自动回退到根目录；目标目录已在回收站或不可写时返回 `NETDISK_PERMISSION_DENIED`。
 
 ### `PurgeNodes`
 
 | 项 | 内容 |
 | --- | --- |
 | HTTP | `POST /v1/nodes/trash/purge` |
-| 鉴权 | 需要令牌 + 节点上的 `PERMISSION_TRASH_MANAGE` |
+| 鉴权 | 需要令牌 + 节点上的 `PERMISSION_TRASH_MANAGE`（内置超级管理员对任意节点都满足） |
 | 请求 | `ids[]`（必填） |
 | 回复 | `PurgeNodesReply`：`purged_ids[]`、`affected_count`、`reclaimed_bytes` |
 | 错误 | `NETDISK_INVALID_ARGUMENT`（节点不在回收站）、`NETDISK_NOT_FOUND`、`NETDISK_PERMISSION_DENIED` |
@@ -585,12 +585,12 @@ Go 客户端的关键两步是 `x509.ParsePKIXPublicKey` 与 `rsa.EncryptOAEP(sh
 | 项 | 内容 |
 | --- | --- |
 | HTTP | `POST /v1/nodes/trash/empty` |
-| 鉴权 | 需要令牌 + `PERMISSION_TRASH_MANAGE`（否则只清空自己拥有的条目） |
+| 鉴权 | 需要令牌；内置超级管理员清空全站回收站，其他账号（含持有 `PERMISSION_TRASH_MANAGE` 的）只清空自己拥有的条目 |
 | 请求 | `trashed_before`（可选，只清理早于该时刻入回收站的条目） |
 | 回复 | `PurgeNodesReply` |
 | 错误 | `NETDISK_PERMISSION_DENIED`、`NETDISK_INVALID_ARGUMENT` |
 
-回收站为空时返回全零结果而不是错误。
+回收站为空时返回全零结果而不是错误。清理只对每棵被删子树的**顶端条目**发起，子树随父一起彻底删除，因此不会把已随父删除的子节点重复计入 `purged_ids`。
 
 ### `ListNodeVersions`
 

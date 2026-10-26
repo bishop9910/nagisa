@@ -66,6 +66,14 @@ func (c *Caller) Has(want PermMask) bool {
 	return c != nil && !c.Anonymous && c.Perms.Has(want)
 }
 
+// IsSuperAdmin reports whether the caller is the highest role of the instance.
+// The administrator carries the management duty for the whole deployment, so
+// node level rules (visibility, ACL, folder password, ownership) do not hide
+// content from it. The account permission set still caps what it may do.
+func (c *Caller) IsSuperAdmin() bool {
+	return c != nil && c.IsAuthenticated() && c.Role == RoleAdmin
+}
+
 // HasAny reports whether the caller holds at least one permission in want.
 func (c *Caller) HasAny(want PermMask) bool {
 	return c != nil && !c.Anonymous && c.Perms.HasAny(want)
@@ -117,8 +125,9 @@ type NodeAccessInput struct {
 }
 
 // EvaluateNodeAccess applies the documented access order:
-// owner, then deny, then allow, then visibility, then the account permission
-// set, and finally the folder password.
+// administrator, visibility, password lock, owner, deny, allow, visibility
+// grant, account permission ceiling, and finally the lock convergence.
+// The rules and their rationale live in docs/permissions.md section 4.
 func EvaluateNodeAccess(in NodeAccessInput) NodeAccess {
 	node := in.Node
 	if node == nil {
@@ -129,6 +138,17 @@ func EvaluateNodeAccess(in NodeAccessInput) NodeAccess {
 
 	if caller == nil {
 		caller = AnonymousCaller()
+	}
+
+	// The administrator of the instance manages every node: visibility, ACL
+	// entries, folder passwords and ownership are all local arrangements
+	// between accounts, and the administrator has to be able to police the
+	// content regardless of them. The account permission set still caps the
+	// result, so narrowing an administrator's permissions narrows this too.
+	if caller.IsSuperAdmin() {
+		acc.Owned = node.OwnerID == caller.UserID
+		acc.Perms = PermNodeScope.And(caller.Perms)
+		return acc
 	}
 
 	// A password protected folder hides its subtree even from an allowed

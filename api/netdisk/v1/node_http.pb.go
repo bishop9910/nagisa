@@ -53,7 +53,10 @@ type NodeServiceHTTPServer interface {
 	// contents, and ListTrash shows it as one entry instead of flattening the
 	// subtree into the listing.
 	DeleteNodes(context.Context, *DeleteNodesRequest) (*DeleteNodesReply, error)
-	// EmptyTrash EmptyTrash purges every trashed node visible to the caller.
+	// EmptyTrash EmptyTrash permanently deletes the trash roots visible to the caller: the
+	// whole instance for the instance administrator, only the caller's own nodes
+	// for everybody else. Subtrees go with their root, so a child of a trashed
+	// folder is never counted twice.
 	EmptyTrash(context.Context, *EmptyTrashRequest) (*PurgeNodesReply, error)
 	// GetNode GetNode returns a single node by id.
 	GetNode(context.Context, *GetNodeRequest) (*Node, error)
@@ -81,11 +84,14 @@ type NodeServiceHTTPServer interface {
 	// is all-or-nothing: a single rejected node rolls the whole batch back.
 	MoveNodes(context.Context, *MoveNodesRequest) (*NodeSet, error)
 	// PurgeNodes PurgeNodes permanently deletes nodes and their stored objects. Requires
-	// PERMISSION_TRASH_MANAGE.
+	// PERMISSION_TRASH_MANAGE on the node; the instance administrator satisfies
+	// this on every node.
 	PurgeNodes(context.Context, *PurgeNodesRequest) (*PurgeNodesReply, error)
 	// RestoreNodeVersion RestoreNodeVersion promotes an older version to be the current content.
 	RestoreNodeVersion(context.Context, *RestoreNodeVersionRequest) (*Node, error)
-	// RestoreNodes RestoreNodes restores nodes from the trash.
+	// RestoreNodes RestoreNodes restores nodes from the trash to their original parent, or to
+	// target_parent_id. The owner and the instance administrator can always
+	// restore; anybody else needs upload on the target folder.
 	RestoreNodes(context.Context, *RestoreNodesRequest) (*NodeSet, error)
 	// SearchNodes SearchNodes performs a tree-wide search over names and descriptions.
 	SearchNodes(context.Context, *SearchNodesRequest) (*NodeSet, error)
@@ -564,7 +570,10 @@ type NodeServiceHTTPClient interface {
 	// contents, and ListTrash shows it as one entry instead of flattening the
 	// subtree into the listing.
 	DeleteNodes(ctx context.Context, req *DeleteNodesRequest, opts ...http.CallOption) (rsp *DeleteNodesReply, err error)
-	// EmptyTrash EmptyTrash purges every trashed node visible to the caller.
+	// EmptyTrash EmptyTrash permanently deletes the trash roots visible to the caller: the
+	// whole instance for the instance administrator, only the caller's own nodes
+	// for everybody else. Subtrees go with their root, so a child of a trashed
+	// folder is never counted twice.
 	EmptyTrash(ctx context.Context, req *EmptyTrashRequest, opts ...http.CallOption) (rsp *PurgeNodesReply, err error)
 	// GetNode GetNode returns a single node by id.
 	GetNode(ctx context.Context, req *GetNodeRequest, opts ...http.CallOption) (rsp *Node, err error)
@@ -592,11 +601,14 @@ type NodeServiceHTTPClient interface {
 	// is all-or-nothing: a single rejected node rolls the whole batch back.
 	MoveNodes(ctx context.Context, req *MoveNodesRequest, opts ...http.CallOption) (rsp *NodeSet, err error)
 	// PurgeNodes PurgeNodes permanently deletes nodes and their stored objects. Requires
-	// PERMISSION_TRASH_MANAGE.
+	// PERMISSION_TRASH_MANAGE on the node; the instance administrator satisfies
+	// this on every node.
 	PurgeNodes(ctx context.Context, req *PurgeNodesRequest, opts ...http.CallOption) (rsp *PurgeNodesReply, err error)
 	// RestoreNodeVersion RestoreNodeVersion promotes an older version to be the current content.
 	RestoreNodeVersion(ctx context.Context, req *RestoreNodeVersionRequest, opts ...http.CallOption) (rsp *Node, err error)
-	// RestoreNodes RestoreNodes restores nodes from the trash.
+	// RestoreNodes RestoreNodes restores nodes from the trash to their original parent, or to
+	// target_parent_id. The owner and the instance administrator can always
+	// restore; anybody else needs upload on the target folder.
 	RestoreNodes(ctx context.Context, req *RestoreNodesRequest, opts ...http.CallOption) (rsp *NodeSet, err error)
 	// SearchNodes SearchNodes performs a tree-wide search over names and descriptions.
 	SearchNodes(ctx context.Context, req *SearchNodesRequest, opts ...http.CallOption) (rsp *NodeSet, err error)
@@ -697,7 +709,10 @@ func (c *NodeServiceHTTPClientImpl) DeleteNodes(ctx context.Context, in *DeleteN
 	return &out, nil
 }
 
-// EmptyTrash EmptyTrash purges every trashed node visible to the caller.
+// EmptyTrash EmptyTrash permanently deletes the trash roots visible to the caller: the
+// whole instance for the instance administrator, only the caller's own nodes
+// for everybody else. Subtrees go with their root, so a child of a trashed
+// folder is never counted twice.
 func (c *NodeServiceHTTPClientImpl) EmptyTrash(ctx context.Context, in *EmptyTrashRequest, opts ...http.CallOption) (*PurgeNodesReply, error) {
 	var out PurgeNodesReply
 	pattern := "/v1/nodes/trash/empty"
@@ -877,7 +892,8 @@ func (c *NodeServiceHTTPClientImpl) MoveNodes(ctx context.Context, in *MoveNodes
 }
 
 // PurgeNodes PurgeNodes permanently deletes nodes and their stored objects. Requires
-// PERMISSION_TRASH_MANAGE.
+// PERMISSION_TRASH_MANAGE on the node; the instance administrator satisfies
+// this on every node.
 func (c *NodeServiceHTTPClientImpl) PurgeNodes(ctx context.Context, in *PurgeNodesRequest, opts ...http.CallOption) (*PurgeNodesReply, error) {
 	var out PurgeNodesReply
 	pattern := "/v1/nodes/trash/purge"
@@ -913,7 +929,9 @@ func (c *NodeServiceHTTPClientImpl) RestoreNodeVersion(ctx context.Context, in *
 	return &out, nil
 }
 
-// RestoreNodes RestoreNodes restores nodes from the trash.
+// RestoreNodes RestoreNodes restores nodes from the trash to their original parent, or to
+// target_parent_id. The owner and the instance administrator can always
+// restore; anybody else needs upload on the target folder.
 func (c *NodeServiceHTTPClientImpl) RestoreNodes(ctx context.Context, in *RestoreNodesRequest, opts ...http.CallOption) (*NodeSet, error) {
 	var out NodeSet
 	pattern := "/v1/nodes/trash/restore"

@@ -402,9 +402,18 @@ func (uc *ShareUsecase) HashPassword(password string) (string, error) {
 	return uc.hasher.Hash(password)
 }
 
-// Node returns the shared node.
+// Node returns the shared node. A node that left the live tree — trashed, or
+// gone entirely — stops being reachable through its links: putting content in
+// the trash is the moderation step that revokes every share of it.
 func (uc *ShareUsecase) Node(ctx context.Context, share *Share) (*Node, error) {
-	return uc.nodes.repo.FindNodeByID(ctx, share.NodeID)
+	node, err := uc.nodes.repo.FindNodeByID(ctx, share.NodeID)
+	if err != nil {
+		return nil, err
+	}
+	if node.Status != NodeStatusActive {
+		return nil, ErrNotFound
+	}
+	return node, nil
 }
 
 // ResolveNode resolves a node inside a share, ensuring it belongs to the

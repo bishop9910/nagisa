@@ -449,19 +449,34 @@ func (uc *UserUsecase) SetPermissions(ctx context.Context, id uuid.UUID, perms P
 	return uc.UpdateUser(ctx, &UpdateUserInput{ID: id, Permissions: &perms})
 }
 
-// UpdateSelf lets an account change its own profile fields. Only the fields a
-// user is allowed to touch on itself are accepted here.
+// UpdateSelf lets an account change its own profile fields. It does not go
+// through UpdateUser: the account management rules (user_manage, strict rank
+// order, built-in accounts locked) exist to stop an account from touching
+// another one, and applying them here denied the caller its own profile.
 func (uc *UserUsecase) UpdateSelf(ctx context.Context, nickname, email, avatar string) (*User, error) {
 	actor := CallerFromContext(ctx)
 	if !actor.IsAuthenticated() {
 		return nil, ErrUnauthenticated
 	}
-	return uc.UpdateUser(ctx, &UpdateUserInput{
-		ID:        actor.UserID,
-		Nickname:  &nickname,
-		Email:     &email,
-		AvatarURL: &avatar,
+	var updated *User
+	err := uc.tx.WithTx(ctx, func(ctx context.Context) error {
+		target, err := uc.repo.FindUserByID(ctx, actor.UserID)
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(nickname) != "" {
+			target.Nickname = strings.TrimSpace(nickname)
+		}
+		target.Email = strings.TrimSpace(email)
+		target.AvatarURL = strings.TrimSpace(avatar)
+		updated, err = uc.repo.UpdateUser(ctx, target)
+		return err
 	})
+	if err != nil {
+		return nil, err
+	}
+	uc.markLocked(updated)
+	return updated, nil
 }
 
 // TouchLogin records a successful login.

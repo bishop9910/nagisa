@@ -52,6 +52,10 @@ const (
 // apply to files and folders alike.
 //
 // Access to a node is decided in this order:
+//  0. the instance administrator (ROLE_ADMIN) manages every node: it holds
+//     every node level permission on it regardless of ownership, visibility,
+//     ACL entries or folder passwords. Its account permission set still caps
+//     the result;
 //  1. the caller must hold PERMISSION_VIEW (or the permission matching the
 //     operation) in its account permission set;
 //  2. the owner of a node always holds every permission on it;
@@ -111,12 +115,18 @@ type NodeServiceClient interface {
 	// contents, and ListTrash shows it as one entry instead of flattening the
 	// subtree into the listing.
 	DeleteNodes(ctx context.Context, in *DeleteNodesRequest, opts ...grpc.CallOption) (*DeleteNodesReply, error)
-	// RestoreNodes restores nodes from the trash.
+	// RestoreNodes restores nodes from the trash to their original parent, or to
+	// target_parent_id. The owner and the instance administrator can always
+	// restore; anybody else needs upload on the target folder.
 	RestoreNodes(ctx context.Context, in *RestoreNodesRequest, opts ...grpc.CallOption) (*NodeSet, error)
 	// PurgeNodes permanently deletes nodes and their stored objects. Requires
-	// PERMISSION_TRASH_MANAGE.
+	// PERMISSION_TRASH_MANAGE on the node; the instance administrator satisfies
+	// this on every node.
 	PurgeNodes(ctx context.Context, in *PurgeNodesRequest, opts ...grpc.CallOption) (*PurgeNodesReply, error)
-	// EmptyTrash purges every trashed node visible to the caller.
+	// EmptyTrash permanently deletes the trash roots visible to the caller: the
+	// whole instance for the instance administrator, only the caller's own nodes
+	// for everybody else. Subtrees go with their root, so a child of a trashed
+	// folder is never counted twice.
 	EmptyTrash(ctx context.Context, in *EmptyTrashRequest, opts ...grpc.CallOption) (*PurgeNodesReply, error)
 	// ListNodeVersions returns the content history of a file node.
 	ListNodeVersions(ctx context.Context, in *ListNodeVersionsRequest, opts ...grpc.CallOption) (*NodeVersionSet, error)
@@ -353,6 +363,10 @@ func (c *nodeServiceClient) DeleteNodeVersion(ctx context.Context, in *DeleteNod
 // apply to files and folders alike.
 //
 // Access to a node is decided in this order:
+//  0. the instance administrator (ROLE_ADMIN) manages every node: it holds
+//     every node level permission on it regardless of ownership, visibility,
+//     ACL entries or folder passwords. Its account permission set still caps
+//     the result;
 //  1. the caller must hold PERMISSION_VIEW (or the permission matching the
 //     operation) in its account permission set;
 //  2. the owner of a node always holds every permission on it;
@@ -412,12 +426,18 @@ type NodeServiceServer interface {
 	// contents, and ListTrash shows it as one entry instead of flattening the
 	// subtree into the listing.
 	DeleteNodes(context.Context, *DeleteNodesRequest) (*DeleteNodesReply, error)
-	// RestoreNodes restores nodes from the trash.
+	// RestoreNodes restores nodes from the trash to their original parent, or to
+	// target_parent_id. The owner and the instance administrator can always
+	// restore; anybody else needs upload on the target folder.
 	RestoreNodes(context.Context, *RestoreNodesRequest) (*NodeSet, error)
 	// PurgeNodes permanently deletes nodes and their stored objects. Requires
-	// PERMISSION_TRASH_MANAGE.
+	// PERMISSION_TRASH_MANAGE on the node; the instance administrator satisfies
+	// this on every node.
 	PurgeNodes(context.Context, *PurgeNodesRequest) (*PurgeNodesReply, error)
-	// EmptyTrash purges every trashed node visible to the caller.
+	// EmptyTrash permanently deletes the trash roots visible to the caller: the
+	// whole instance for the instance administrator, only the caller's own nodes
+	// for everybody else. Subtrees go with their root, so a child of a trashed
+	// folder is never counted twice.
 	EmptyTrash(context.Context, *EmptyTrashRequest) (*PurgeNodesReply, error)
 	// ListNodeVersions returns the content history of a file node.
 	ListNodeVersions(context.Context, *ListNodeVersionsRequest) (*NodeVersionSet, error)

@@ -27,7 +27,7 @@
 #
 # Why this is not the old two-stage file:
 #   * the front end is actually built here, so `/` is the netdisk UI instead of
-#     the placeholder page that git ships in web/dist;
+#     the placeholder page the server serves when web/dist is absent;
 #   * the Go module download is a cached layer of its own, so editing a .go file
 #     no longer re-downloads the whole module graph;
 #   * the binary is built with the version baked in (`-X main.Version`), because

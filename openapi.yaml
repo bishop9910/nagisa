@@ -1095,7 +1095,11 @@ paths:
     post:
       tags:
         - NodeService
-      description: EmptyTrash purges every trashed node visible to the caller.
+      description: |-
+        EmptyTrash permanently deletes the trash roots visible to the caller: the
+         whole instance for the instance administrator, only the caller's own nodes
+         for everybody else. Subtrees go with their root, so a child of a trashed
+         folder is never counted twice.
       operationId: NodeService_EmptyTrash
       requestBody:
         content:
@@ -1177,7 +1181,8 @@ paths:
         - NodeService
       description: |-
         PurgeNodes permanently deletes nodes and their stored objects. Requires
-         PERMISSION_TRASH_MANAGE.
+         PERMISSION_TRASH_MANAGE on the node; the instance administrator satisfies
+         this on every node.
       operationId: NodeService_PurgeNodes
       requestBody:
         content:
@@ -1202,7 +1207,10 @@ paths:
     post:
       tags:
         - NodeService
-      description: RestoreNodes restores nodes from the trash.
+      description: |-
+        RestoreNodes restores nodes from the trash to their original parent, or to
+         target_parent_id. The owner and the instance administrator can always
+         restore; anybody else needs upload on the target folder.
       operationId: NodeService_RestoreNodes
       requestBody:
         content:

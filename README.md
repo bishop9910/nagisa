@@ -245,11 +245,13 @@ curl -s "$BASE/v1/files/$NODE_ID/download-url?expires_in_seconds=600" \
 ## 目录结构
 
 ```text
+data/                    运行期状态（SQLite、RSA 密钥、本地上传、SeaweedFS 数据）；只提交 README 与开发用 s3.json
 api/netdisk/v1/          protobuf 契约：common/auth/user/node/file/share/audit/system + error_reason
 cmd/nagisa/              进程入口、Wire 注入器（wire.go / wire_gen.go）
 configs/                 运行配置 config.yaml（不含密钥）
 deploy/                  部署辅助：Caddyfile（内网 HTTPS，见 docs/deployment.md 3.4）、compose/（nagisa + SeaweedFS 一键起）
 docs/                    本仓库文档与 OpenAPI 文档
+frontend/                前端源码（Vue 3 + Vite + TypeScript），构建到 web/dist
 internal/conf/           配置 proto 与生成代码
 internal/server/         HTTP/gRPC 装配、编解码、静态托管、原始字节路由、中间件
 internal/service/        传输适配层：DTO ↔ DO，一个资源一个文件
@@ -259,7 +261,7 @@ internal/pkg/            bcrypt/RSA/JWT/URL 签名等基础库
 scripts/                 构建与运维脚本（build.ps1 / env.ps1 / lan-tls.ps1 / 前端冒烟）
 test/integration/        端到端冒烟测试（build tag: integration）
 tools/openapi/           OpenAPI 文档富化工具（补充安全方案、错误响应与原始字节绑定）
-web/                     前端接入位：README.md 说明约定，dist/ 目前只有占位 index.html
+web/                     前端托管位：README.md 说明约定，dist/ 由 frontend 构建产生（不提交）
 ```
 
 ## 文档索引
@@ -310,4 +312,5 @@ go test -tags integration ./test/integration/ -v
 - 访问令牌是 HS256 签名的 JWT，密钥来自 `auth.jwt_secret`；未配置时每次启动随机生成，重启后所有令牌失效（并在日志中告警）。生产必须显式配置。
 - 下载链接是带过期时间的签名 URL（绑定方法、路径、节点、处置方式与过期时刻），服务端在落地请求时再次校验签名；签名密钥同样来自 `auth.jwt_secret`。
 - 审计日志记录每一次状态变更及其成功/失败与失败原因，失败调用同样入库；日志只增不改，接口不提供修改或删除。
-- 节点访问遵循「账号权限上限 → 属主通行 → 显式拒绝 → 显式允许（含继承）→ 可见范围 → 文件夹密码」，ACL 只能携带节点级权限，无法把账号提升为管理员；分享链接最多只能传递 `view` / `download` / `upload`。
+- 节点访问遵循「超级管理员通行 → 可见范围折叠 → 锁定检查 → 属主通行 → 显式拒绝 → 显式允许 → 可见范围授予 → 账号权限上限 → 锁定收敛」，ACL 只能携带节点级权限，无法把账号提升为管理员；分享链接最多只能传递 `view` / `download` / `upload`。
+- `ROLE_ADMIN` 是实例的最高角色，对全站节点通行（可查看、移动、删除、还原与彻底清除任何账号的文件），这样它才能履行违规内容管理的职责；它的账号权限集仍是上限，收窄权限即收窄能力。回收站的跨账号可见性与「清空回收站」只属于它，其他账号的 `trash_manage` 只作用于自己的回收站。

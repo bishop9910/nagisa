@@ -36,7 +36,7 @@ Nagisa 只使用标准 S3 API，**任何 S3 兼容实现都可以**：换后端�
 weed server -s3 -dir=/srv/seaweedfs -master.dir=/srv/seaweedfs/meta -s3.config=/etc/seaweedfs/s3.json
 ```
 
-Windows（PowerShell）等价写法，数据与凭据都放在仓库的 `data/seaweedfs`（该目录已被 `.gitignore` 忽略，不会误提交）：
+Windows（PowerShell）等价写法，数据与凭据都放在仓库的 `data/seaweedfs`（该目录下的运行期数据被 `.gitignore` 忽略，不会误提交；仓库只跟踪 `data/seaweedfs/s3.json` 这一份开发用凭据）：
 
 ```powershell
 weed server -ip=127.0.0.1 -s3 -dir=.\data\seaweedfs -master.dir=.\data\seaweedfs\meta -s3.config=.\data\seaweedfs\s3.json

@@ -34,10 +34,18 @@ Thumbs.db
 *.log
 bin/
 .cache/
-# Runtime state only: the SQLite database and the RSA password key live in
-# ./data. Anchored to the repository root on purpose, so the Go package at
-# internal/data stays tracked.
-/data/
+# Scratch space for local tool runs (buf output, Go build cache, generated
+# copies used to diff against the checked in artifacts).
+.tmp/
+# Runtime state only: the SQLite database, the RSA password key, uploads and the
+# local SeaweedFS data live in ./data. The directory itself is not ignored (the
+# Go package internal/data has to stay tracked), only its runtime children are.
+# The development examples referenced by the docs are re-included explicitly.
+/data/*
+!/data/README.md
+!/data/seaweedfs/
+/data/seaweedfs/*
+!/data/seaweedfs/s3.json
 web/dist
 
 # Compose deployment state: .env holds JWT_SECRET and the admin password, and
@@ -52,3 +60,6 @@ deploy/compose/data/*
 .vscode/
 .idea/
 *.swp
+
+.graphflow/
+graphflow-out/
